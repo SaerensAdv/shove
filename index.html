@@ -1,0 +1,120 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>SHOVE · Carnival coin pusher · prototype v0.4</title>
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=DM+Sans:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--red:#D8343F;--gold:#FFD25A;--cream:#F6EBD5;--ink:#1A0F14;--sky:#1B0F2E}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--sky);font-family:"DM Sans",system-ui,sans-serif;color:var(--cream);touch-action:none;user-select:none;-webkit-user-select:none}
+#cv{position:fixed;inset:0;width:100%;height:100%;display:block}
+.top{position:fixed;left:0;right:0;top:0;padding:max(10px,env(safe-area-inset-top)) 12px 0;display:flex;gap:8px;align-items:flex-start;pointer-events:none}
+.pill{pointer-events:auto;background:rgba(26,15,20,.78);border:2px solid #8A5A12;border-radius:16px;padding:6px 12px;backdrop-filter:blur(6px)}
+.coins{display:flex;align-items:center;gap:8px}
+.coins .c{width:26px;height:26px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#FFF1B0,#E8B53C 55%,#9C6A12);box-shadow:inset 0 -2px 0 rgba(0,0,0,.25)}
+.coins b{font-family:Bungee,Impact,sans-serif;font-size:24px;line-height:1}
+.coins small{display:block;font-size:12px;opacity:.75;font-weight:700}
+.lvl{display:flex;align-items:center;gap:8px;flex:1;max-width:170px}
+.lvl .badge{font-family:Bungee,Impact,sans-serif;font-size:14px;background:var(--red);border-radius:10px;padding:4px 8px}
+.xp{flex:1;height:8px;border-radius:5px;background:#3A2430;overflow:hidden}.xp i{display:block;height:100%;background:linear-gradient(90deg,#FFD25A,#FF8A3D);width:0}
+.ibtn{pointer-events:auto;position:relative;width:46px;height:46px;border-radius:14px;background:rgba(26,15,20,.78);border:2px solid #8A5A12;color:var(--cream);font-size:20px;display:grid;place-items:center;cursor:pointer}
+.ibtn small{position:absolute;bottom:-6px;right:-6px;background:var(--gold);color:var(--ink);border-radius:8px;font-weight:800;font-size:11px;padding:1px 5px}
+.ibtn .dot{position:absolute;top:-4px;right:-4px;width:12px;height:12px;border-radius:50%;background:var(--red);border:2px solid var(--cream)}
+.sp{flex:1}
+.side{position:fixed;right:10px;top:calc(max(10px,env(safe-area-inset-top)) + 62px);display:flex;flex-direction:column;gap:12px;z-index:2}
+.ibtn.bump{animation:bump .5s}@keyframes bump{40%{transform:scale(1.3)}}
+.lucky{display:flex;align-items:center;gap:5px;font:800 11px "DM Sans";letter-spacing:.08em}
+.lucky i{width:13px;height:13px;border-radius:50%;background:#4A2A26;border:2px solid #8A5A12}.lucky i.on{background:#FFE38A;box-shadow:0 0 10px #FFC54D;border-color:#FFE38A}
+#hour{background:linear-gradient(90deg,#FFD25A,#FF8A3D);color:var(--ink);font-family:Bungee,Impact,sans-serif;font-size:13px;border-color:#FFE38A;animation:pulse .6s infinite alternate}
+@keyframes pulse{to{transform:scale(1.06)}}
+#combo{position:fixed;left:50%;bottom:118px;transform:translateX(-50%) scale(.6);font-family:Bungee,Impact,sans-serif;font-size:34px;color:var(--cream);text-shadow:0 3px 0 #8A2A12,0 0 18px rgba(255,140,60,.6);opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;animation:cb .25s}
+#combo.on{opacity:1;transform:translateX(-50%) scale(1)}#combo.hot{color:var(--gold);font-size:44px}
+#combo::after{content:" COMBO";font-size:.45em;vertical-align:middle}
+@keyframes cb{from{transform:translateX(-50%) scale(1.35)}}
+.pop.lucky{color:#FFF;font-size:30px;text-shadow:0 3px 0 #D8343F,0 0 16px #FFC54D}
+#card{position:fixed;left:50%;top:34%;white-space:nowrap;z-index:4;display:flex;align-items:center;gap:12px;background:var(--cream);color:var(--ink);border:4px solid var(--red);border-radius:22px;padding:10px 18px 10px 10px;box-shadow:0 12px 30px rgba(0,0,0,.45);pointer-events:none;transform:translate(-50%,0) scale(.4) rotate(-6deg);opacity:0}
+#card.in{animation:cardin .45s cubic-bezier(.2,1.6,.4,1) forwards}
+#card.fly{animation:cardout .5s ease-in forwards}
+@keyframes cardin{to{transform:translate(-50%,0) scale(1) rotate(-2deg);opacity:1}}
+@keyframes cardout{from{transform:translate(-50%,0) scale(1) rotate(-2deg);opacity:1}to{transform:translate(30vw,-22vh) scale(.15);opacity:.3}}
+#card.gold{background:linear-gradient(135deg,#FFF3C4,#F2C14E);border-color:#8A5A12}
+#card img{width:84px;height:84px;border-radius:16px;background:radial-gradient(#FFE9C9,#F2C9A0)}
+#card em{font-style:normal;font:800 11px "DM Sans";letter-spacing:.1em;background:var(--ink);color:var(--cream);border-radius:6px;padding:2px 6px}#card em.new{background:var(--red)}
+#card b{display:block;font-family:Bungee,Impact,sans-serif;font-size:22px;margin:4px 0 2px}#card small{font-weight:700;font-size:12px;opacity:.7}
+.tabs{display:flex;gap:6px;margin:6px 0 4px}.tabs button{flex:1;font:800 12px "DM Sans";letter-spacing:.06em;background:#1A0F14;color:var(--cream);border:2px solid #3A2430;border-radius:12px;padding:8px 4px;cursor:pointer}.tabs button.on{border-color:var(--gold);color:var(--gold)}
+.slot img{width:58px;height:58px;display:block;margin:0 auto 2px}.slot img.sil{filter:brightness(0) opacity(.45)}.slot.gold{background:linear-gradient(#3A2A10,#1A0F14)}
+.grid.locked{opacity:.35;pointer-events:none}
+.mis{display:flex;gap:10px;align-items:center;background:#1A0F14;border:2px solid #3A2430;border-radius:14px;padding:10px 12px;margin-top:8px}
+.mis>div{flex:1}.mis b{font-size:15px}.mis small{font-size:12px;opacity:.75}.mis.done{border-color:var(--gold)}.mis.claimed{opacity:.5}
+.mis .bar{height:7px;border-radius:4px;background:#3A2430;margin:6px 0 4px;overflow:hidden}.mis .bar i{display:block;height:100%;background:linear-gradient(90deg,#FFD25A,#FF8A3D)}
+.mis button{font-family:Bungee,Impact,sans-serif;font-size:13px;background:var(--gold);color:var(--ink);border:none;border-radius:10px;padding:9px 10px;box-shadow:0 3px 0 #8A5A12;cursor:pointer}.mis button:disabled{background:#3A2430;color:#8A7A80;box-shadow:none}
+#wheel .wheelbox{text-align:center;width:100%;max-width:380px}
+#wheel h2{font-family:Bungee,Impact,sans-serif;color:var(--gold);font-size:30px;margin:0 0 10px;text-shadow:0 3px 0 #8A2A12}
+.wwrap{position:relative;width:min(84vw,330px);aspect-ratio:1;margin:0 auto}
+#wheelCv{width:100%;height:100%;transition:transform 3.6s cubic-bezier(.12,.7,.15,1);filter:drop-shadow(0 10px 24px rgba(0,0,0,.5))}
+.pointer{position:absolute;left:50%;top:-14px;transform:translateX(-50%);width:0;height:0;border-left:18px solid transparent;border-right:18px solid transparent;border-top:34px solid var(--cream);filter:drop-shadow(0 3px 0 #8A2A12)}
+#wheelRes{min-height:44px;margin-top:10px;font-weight:800;font-size:16px}
+#wheel .btn{max-width:260px;margin:8px auto 0}
+.bottom{position:fixed;left:0;right:0;bottom:0;padding:0 12px max(14px,env(safe-area-inset-bottom));display:flex;justify-content:center;gap:10px;pointer-events:none}
+.pw{pointer-events:auto;min-width:92px;border-radius:18px;border:3px solid #8A5A12;background:linear-gradient(#2E1720,#1A0F14);color:var(--cream);font:800 13px "DM Sans";padding:8px 10px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;box-shadow:0 4px 0 #5A3A0A}
+.pw span{font-size:22px;line-height:1}.pw b{font-family:Bungee,Impact,sans-serif;font-size:14px;color:var(--gold)}
+.pw:disabled{opacity:.4}
+#toast{position:fixed;left:50%;top:22%;transform:translate(-50%,-10px) scale(.95);max-width:86%;text-align:center;background:var(--cream);color:var(--ink);font-weight:800;font-size:17px;border-radius:16px;padding:10px 16px;border:3px solid var(--red);opacity:0;transition:all .2s;pointer-events:none;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+#toast.on{opacity:1;transform:translate(-50%,0) scale(1)}
+#pops{position:fixed;left:0;right:0;bottom:120px;height:0;pointer-events:none}
+.pop{position:absolute;bottom:0;font-family:Bungee,Impact,sans-serif;font-size:26px;color:var(--gold);text-shadow:0 3px 0 #8A5A12;animation:up .9s ease-out forwards}
+@keyframes up{to{transform:translateY(-90px);opacity:0}}
+.modal{position:fixed;inset:0;background:rgba(14,8,18,.82);display:flex;align-items:center;justify-content:center;padding:20px;z-index:5}
+.panel{width:100%;max-width:380px;background:#24131C;border:3px solid #8A5A12;border-radius:22px;padding:18px;position:relative;max-height:90%;overflow:auto}
+.panel h2{font-family:Bungee,Impact,sans-serif;font-size:28px;margin:0 0 4px;color:var(--gold)}
+.panel p{margin:4px 0 12px;font-size:15px;opacity:.85;line-height:1.35}
+.x{position:absolute;top:10px;right:12px;background:none;border:none;color:var(--cream);font-size:24px;cursor:pointer}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.slot{background:#1A0F14;border-radius:14px;padding:8px 4px;text-align:center;border:2px solid #3A2430}
+.slot.have{border-color:var(--gold)}
+.slot .dot{width:44px;height:44px;border-radius:50%;margin:0 auto 4px;display:grid;place-items:center;font-weight:800;color:#6A5A70}
+.slot b{display:block;font-size:12px}.slot small{font-size:11px;opacity:.7}
+.btn{display:block;width:100%;font-family:Bungee,Impact,sans-serif;font-size:17px;background:var(--gold);color:var(--ink);border:none;border-radius:14px;padding:13px;margin-top:8px;cursor:pointer;box-shadow:0 4px 0 #8A5A12}
+.btn:disabled{opacity:.5}
+.pack{display:flex;justify-content:space-between;align-items:center;background:#1A0F14;border:2px solid #3A2430;border-radius:14px;padding:10px 12px;margin-top:8px;cursor:pointer;color:var(--cream);font:800 16px "DM Sans";width:100%}
+.pack em{font-style:normal;color:var(--gold);font-family:Bungee,Impact,sans-serif}
+.note{font-size:12px;opacity:.6;margin-top:10px}
+#loading{position:fixed;inset:0;display:grid;place-items:center;background:var(--sky);font-family:Bungee,Impact,sans-serif;font-size:26px;color:var(--gold);z-index:9;text-align:center}
+.hidden{display:none!important}
+</style></head><body>
+<canvas id="cv"></canvas>
+<div class="top">
+  <div class="pill coins"><div class="c"></div><div><b id="coins">0</b><small id="refill">+1 in 0:30</small></div></div>
+  <div class="pill lvl"><span class="badge">LV <span id="lvl">1</span></span><div class="xp"><i id="xpfill"></i></div></div>
+  <div class="pill lucky" id="luckyL" title="Lucky ring: 3 hits = wheel spin">🎯<i></i><i></i><i></i></div>
+  <span class="sp"></span>
+  <div class="pill hidden" id="hour">×2 <span id="hourT">20s</span></div>
+</div>
+<div class="side">
+  <button class="ibtn" id="bAlbum" title="Collection">🧸<small id="albumN">0/8</small></button>
+  <button class="ibtn" id="bMiss" title="Daily tasks">📋<small id="missN">0/3</small><span class="dot hidden" id="missDot"></span></button>
+  <button class="ibtn" id="bShop" title="Shop">🎟<span class="dot hidden" id="dailyDot"></span></button>
+  <button class="ibtn" id="bSound" title="Sound">🔊</button>
+</div>
+<div class="bottom">
+  <button class="pw" id="bShake"><span>〰️</span>SHAKE<b id="shakeN">3</b></button>
+  <button class="pw" id="bWall"><span>🧱</span>WALLS<b id="wallN">1</b></button>
+  <button class="pw" id="bGiant"><span>🪙</span>GIANT<b id="giantN">1</b></button>
+</div>
+<div id="toast"></div><div id="pops"></div><div id="combo">×0</div>
+<div id="card" class="hidden"><img id="cardImg" alt=""><div><em id="cardTag">NEW!</em><b id="cardName"></b><small id="cardSub"></small></div></div>
+<div class="modal hidden" id="album"><div class="panel"><button class="x" data-close>×</button><h2>PLUSH ALBUM</h2><div class="tabs" id="albumTabs"></div><p id="albumLine"></p><div class="grid" id="albumGrid"></div></div></div>
+<div class="modal hidden" id="shop"><div class="panel"><button class="x" data-close>×</button><h2>COIN BOOTH</h2><p>Free coins refill over time. Grab your daily bonus, or top up.</p>
+  <button class="btn" id="dailyBtn">Claim daily bonus</button>
+  <button class="pack" data-pack="150">Bag of coins · 150<em>€0,99</em></button>
+  <button class="pack" data-pack="500">Bucket of coins · 500<em>€2,99</em></button>
+  <button class="pack" data-pack="1500">Barrel of coins · 1.500<em>€6,99</em></button>
+  <div class="note">Prototype: packs are test buttons, no real payment. Coins can never be cashed out.</div></div></div>
+<div class="modal hidden" id="missions"><div class="panel"><button class="x" data-close>×</button><h2>DAILY TASKS</h2><p>Three new tasks every day. Finish all three to grow your streak.</p><div id="missList"></div><div class="note" id="streakLine"></div></div></div>
+<div class="modal hidden" id="wheel"><div class="wheelbox"><h2>LUCKY WHEEL</h2><div class="wwrap"><canvas id="wheelCv" width="600" height="600"></canvas><div class="pointer"></div></div><div id="wheelRes"></div><button class="btn" id="spinBtn">SPIN!</button></div></div>
+<div class="modal hidden" id="out"><div class="panel"><button class="x" data-close>×</button><h2>OUT OF COINS</h2><p id="outLine"></p><button class="btn" id="outShop">Coin booth</button></div></div>
+<div id="loading">WARMING UP<br>THE MACHINE…</div>
+<script type="importmap">{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js",
+  "three/examples/jsm/":"https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/",
+  "@dimforge/rapier3d-compat":"https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.12.0/rapier.es.js"}}</script>
+<script type="module" src="./main.js"></script></body></html>
