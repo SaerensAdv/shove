@@ -1,7 +1,11 @@
-// SHOVE · Carnival coin pusher · prototype v0.6 (Three.js + Rapier, app-ready)
+// SHOVE · Carnival coin pusher · prototype v0.7 (Three.js + Rapier, app-ready, art + sound pass)
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import RAPIER from '@dimforge/rapier3d-compat';
 
 const $ = id => document.getElementById(id);
@@ -73,10 +77,10 @@ const MPOOL = [
 // ---------- save ----------
 const STRESS = /[?&#]stress/.test(location.search + location.hash) || !!window.SHOVE_STRESS;
 const KEY = STRESS ? 'shove_stress_tmp' : 'shove_carnival_v1';
-const save = Object.assign({ coins: CFG.startCoins, lastRefill: Date.now(), xp: 0, level: 1, album: {}, shakes: 3, walls: 1, giants: 1, daily: '', dropped: 0, won: 0, sound: true, board: null, lucky: 0, spins: 0, missions: null, streak: 0, streakDay: '', setsDone: {}, booth: 'kermis', boards: {}, unlocked: {}, tut: 0, music: true, haptics: true, quality: 'auto', ads: { day: '', n: 0 } },
+const save = Object.assign({ coins: CFG.startCoins, lastRefill: Date.now(), xp: 0, level: 1, album: {}, shakes: 3, walls: 1, giants: 1, daily: '', dropped: 0, won: 0, sound: true, board: null, lucky: 0, spins: 0, missions: null, streak: 0, streakDay: '', setsDone: {}, booth: 'kermis', boards: {}, unlocked: {}, tut: 0, music: true, haptics: true, quality: 'auto', glow: true, ads: { day: '', n: 0 } },
   STRESS ? { coins: 1e6, sound: false, seenIntro: true, seenRing: true, board: null, tut: 99 } : (() => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } })());
 // ---------- native bridge: the Capacitor app build sets window.SHOVE_NATIVE, the web build leaves it empty ----------
-const N = window.SHOVE_NATIVE || null, NATIVE = !!N, VERSION = '0.6';
+const N = window.SHOVE_NATIVE || null, NATIVE = !!N, VERSION = '0.7';
 let prefT = 0;
 function persist() { if (STRESS) return; const str = JSON.stringify(save); try { localStorage.setItem(KEY, str); } catch (e) {}
   if (NATIVE && N.Preferences) { clearTimeout(prefT); prefT = setTimeout(() => { N.Preferences.set({ key: KEY, value: JSON.stringify(save) }).catch(() => {}); }, 700); } }
@@ -89,12 +93,28 @@ const buzz = p => { if (!save.haptics) return;
   try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} };
 
 // ---------- audio ----------
-let AC = null, musicOn = false;
-function ac() { return AC ||= new (window.AudioContext || window.webkitAudioContext)(); }
-function tone(f0, f1, d, type = 'sine', v = 0.05, delay = 0) { if (!save.sound) return; try { const a = ac(), o = a.createOscillator(), g = a.createGain(), t = a.currentTime + delay; o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(30, f1), t + d); g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d); o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + d + 0.02); } catch (e) {} }
+let AC = null, musicOn = false, busS = null, busM = null, NOISE = null;
+// mix: sfx bus + music bus -> soft compressor -> speakers
+function ac() { if (AC) return AC; AC = new (window.AudioContext || window.webkitAudioContext)();
+  const comp = AC.createDynamicsCompressor(); comp.threshold.value = -16; comp.knee.value = 12; comp.ratio.value = 3.5; comp.attack.value = 0.004; comp.release.value = 0.2; comp.connect(AC.destination);
+  busS = AC.createGain(); busS.gain.value = 1; busS.connect(comp); busM = AC.createGain(); busM.gain.value = 0.9; busM.connect(comp);
+  NOISE = AC.createBuffer(1, AC.sampleRate * 2, AC.sampleRate); const d = NOISE.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  return AC; }
+function tone(f0, f1, d, type = 'sine', v = 0.05, delay = 0, mus = 0) { if (!save.sound) return; try { const a = ac(), o = a.createOscillator(), g = a.createGain(), t = a.currentTime + delay; o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(30, f1), t + d); g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d); o.connect(g); g.connect(mus ? busM : busS); o.start(t); o.stop(t + d + 0.02); } catch (e) {} }
+// filtered noise burst: the "ch" of metal on metal
+function hiss(freq, q, d, v, delay = 0, type = 'bandpass') { if (!save.sound) return; try { const a = ac(), s = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain(), t = a.currentTime + delay; s.buffer = NOISE; f.type = type; f.frequency.value = freq; f.Q.value = q; g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d); s.connect(f); f.connect(g); g.connect(busS); s.start(t, Math.random() * 1.5); s.stop(t + d + 0.02); } catch (e) {} }
+// fair ambience: crowd murmur + pusher motor hum, very quiet, on the music bus
+let amb = null;
+function ambience() { if (amb || !AC || !save.sound || !save.music) return; try {
+  const crowd = AC.createBufferSource(); crowd.buffer = NOISE; crowd.loop = true; const bp = AC.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 700; bp.Q.value = 0.6; const cg = AC.createGain(); cg.gain.value = 0.018;
+  const lfo = AC.createOscillator(), lg = AC.createGain(); lfo.frequency.value = 0.13; lg.gain.value = 0.008; lfo.connect(lg); lg.connect(cg.gain); crowd.connect(bp); bp.connect(cg); cg.connect(busM);
+  const hum = AC.createOscillator(); hum.type = 'triangle'; hum.frequency.value = 52; const lp = AC.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 160; const hg = AC.createGain(); hg.gain.value = 0.02; hum.connect(lp); lp.connect(hg); hg.connect(busM);
+  crowd.start(); lfo.start(); hum.start(); amb = { crowd, lfo, hum, cg, hg }; } catch (e) {} }
+function ambienceOff() { if (!amb) return; try { amb.crowd.stop(); amb.lfo.stop(); amb.hum.stop(); } catch (e) {} amb = null; }
 let lastClink = 0;
-function clink(v = 1, up = 1) { const n = performance.now(); if (n - lastClink < 40) return; lastClink = n; const f = (1700 + Math.random() * 600) * up; tone(f, f * 1.5, 0.08, 'triangle', 0.035 * v); tone(3200 * up + Math.random() * 400, 3000 * up, 0.05, 'sine', 0.015 * v); }
-function clatter() { tone(900 + Math.random() * 500, 700, 0.05, 'triangle', 0.02); tone(2400 + Math.random() * 900, 2000, 0.03, 'square', 0.006, 0.02); }
+function clink(v = 1, up = 1) { const n = performance.now(); if (n - lastClink < 40) return; lastClink = n; const f = (1900 + Math.random() * 700) * up;
+  hiss(6500, 1.2, 0.025, 0.05 * v); tone(f, f * 0.995, 0.16, 'sine', 0.03 * v); tone(f * 2.76, f * 2.74, 0.09, 'sine', 0.012 * v); tone(f * 5.4, f * 5.38, 0.05, 'sine', 0.006 * v); }
+function clatter() { hiss(2600 + Math.random() * 1800, 3, 0.04, 0.03); tone(1400 + Math.random() * 600, 1300, 0.05, 'sine', 0.012); if (Math.random() < 0.5) hiss(4200, 4, 0.03, 0.018, 0.03); }
 // tiny calliope waltz
 const MEL = [67, 72, 76, 74, 72, 67, 69, 71, 72, 0, 64, 67, 72, 71, 69, 67, 65, 64, 62, 0, 67, 72, 76, 79, 77, 76, 74, 72, 71, 72];
 let mi = 0, nextNote = 0;
@@ -102,8 +122,8 @@ function music() {
   if (!musicOn || !save.sound || !save.music || !AC) return;
   while (nextNote < AC.currentTime + 0.3) {
     const m = MEL[mi % MEL.length], t = nextNote - AC.currentTime;
-    if (m) { const f = 440 * Math.pow(2, (m - 69) / 12); tone(f, f, 0.32, 'square', 0.012, Math.max(0, t)); tone(f * 2, f * 2, 0.2, 'sine', 0.008, Math.max(0, t)); }
-    if (mi % 3 === 0) { tone(110, 100, 0.25, 'triangle', 0.02, Math.max(0, t)); }
+    if (m) { const f = 440 * Math.pow(2, (m - 69) / 12); tone(f, f, 0.32, 'square', 0.009, Math.max(0, t), 1); tone(f * 1.004, f * 1.004, 0.3, 'triangle', 0.012, Math.max(0, t), 1); tone(f * 2, f * 2, 0.2, 'sine', 0.006, Math.max(0, t), 1); }
+    if (mi % 3 === 0) { tone(110, 100, 0.25, 'triangle', 0.022, Math.max(0, t), 1); } else { tone(220, 218, 0.12, 'triangle', 0.008, Math.max(0, t), 1); tone(277, 275, 0.12, 'triangle', 0.006, Math.max(0, t), 1); }
     mi++; nextNote += 0.24;
   }
 }
@@ -117,7 +137,8 @@ const scene = new THREE.Scene();
 const pmrem = new THREE.PMREMGenerator(renderer);
 scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture; scene.environmentIntensity = 0.55;
 const camera = new THREE.PerspectiveCamera(46, 1, 0.1, 200);
-function resize() { const w = window.innerWidth, h = window.innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h;
+let composer = null, bloomPass = null;
+function resize() { const w = window.innerWidth, h = window.innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; if (composer) { composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(w, h); }
   const portrait = h > w; camera.fov = portrait ? 50 : 40; camera.position.set(0, portrait ? 16.4 : 12.5, portrait ? 13.4 : 12.5); camera.lookAt(0, -0.6, portrait ? -0.6 : 0.4); camera.updateProjectionMatrix(); }
 window.addEventListener('resize', resize);
 
@@ -223,6 +244,34 @@ const lampOff = new THREE.MeshStandardMaterial({ color: 0x5A2A20, roughness: 0.4
 const lamps = [-1.1, 0, 1.1].map(x => { const l = new THREE.Mesh(new THREE.SphereGeometry(0.24, 18, 12), lampOff); l.position.set(x, CFG.deckY + 1.72, -5.17); scene.add(l); const rim = new THREE.Mesh(new THREE.TorusGeometry(0.27, 0.05, 8, 24), M.chrome); rim.position.copy(l.position); scene.add(rim); l.userData.rim = rim; return l; });
 let ringT = 0, ringFlash = 0;
 const ringX = (t = ringT) => 3.0 * Math.sin(t * 1.6 + 0.7 * Math.sin(t * 0.47));
+
+// ---------- glow (bloom on the bulbs, ring and coins; High tier only) ----------
+function makeComposer() { try { composer = new EffectComposer(renderer); composer.addPass(new RenderPass(scene, camera));
+  bloomPass = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.42, 0.35, 1.7); composer.addPass(bloomPass); composer.addPass(new OutputPass());
+  composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(innerWidth, innerHeight); } catch (e) { composer = null; } }
+const glowOn = () => !STRESS && save.glow && qTier === 0 && composer;
+let glowState = null;   // with glow, light sources burn brighter than white so only they bloom
+function glowSync() { const g = !!glowOn(); if (g === glowState) return; glowState = g; const k = g ? 3.4 : 1;
+  M.bulbOn.color.setHex(0xFFE38A).multiplyScalar(k); lampOn.color.setHex(0xFFE38A).multiplyScalar(k); sparks.material.color.setHex(0xFFE07A).multiplyScalar(g ? 2.8 : 1); }
+function dotTex() { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'), g = x.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.35, 'rgba(255,240,190,.85)'); g.addColorStop(1, 'rgba(255,200,80,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); }
+// ---------- particles: sparks at the chute, confetti for big moments ----------
+const SPK = 260, spkPos = new Float32Array(SPK * 3).fill(-99), spkVel = new Float32Array(SPK * 3), spkLife = new Float32Array(SPK); let spkI = 0;
+const spkGeo = new THREE.BufferGeometry(); spkGeo.setAttribute('position', new THREE.BufferAttribute(spkPos, 3));
+const sparks = new THREE.Points(spkGeo, new THREE.PointsMaterial({ color: 0xFFE07A, size: 0.32, map: dotTex(), transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false })); sparks.frustumCulled = false; scene.add(sparks);
+function sparkBurst(x, y, z, n = 8, power = 1) { for (let k = 0; k < n; k++) { const i = spkI++ % SPK; spkPos[i * 3] = x + (Math.random() - 0.5) * 0.4; spkPos[i * 3 + 1] = y; spkPos[i * 3 + 2] = z;
+  spkVel[i * 3] = (Math.random() - 0.5) * 3 * power; spkVel[i * 3 + 1] = (2 + Math.random() * 3.5) * power; spkVel[i * 3 + 2] = (Math.random() - 0.2) * 2 * power; spkLife[i] = 0.5 + Math.random() * 0.5; } }
+const CF = 180, cfMesh = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.2, 0.11), new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }), CF), cf = [];
+cfMesh.frustumCulled = false; cfMesh.count = 0; scene.add(cfMesh);
+const CFCOL = [0xD8343F, 0xFFD25A, 0xF6EBD5, 0x2F8FA6, 0xFF7AB0, 0x7ED36A].map(c => new THREE.Color(c));
+for (let i = 0; i < CF; i++) cfMesh.setColorAt(i, CFCOL[i % CFCOL.length]);
+function confetti(n = 90) { for (let k = 0; k < n; k++) { if (cf.length >= CF) cf.shift(); cf.push({ p: new THREE.Vector3((Math.random() - 0.5) * 7, 7 + Math.random() * 3, -3 + Math.random() * 7), v: new THREE.Vector3((Math.random() - 0.5) * 2.5, Math.random() * 1.5, (Math.random() - 0.5) * 2), r: new THREE.Euler(Math.random() * 6, Math.random() * 6, 0), s: 3 + Math.random() * 6, life: 3 + Math.random() * 1.5 }); } }
+const cfDummy = new THREE.Object3D();
+function fxTick(dt) {
+  for (let i = 0; i < SPK; i++) { if (spkLife[i] <= 0) continue; spkLife[i] -= dt; if (spkLife[i] <= 0) { spkPos[i * 3 + 1] = -99; continue; }
+    spkVel[i * 3 + 1] -= 9 * dt; spkPos[i * 3] += spkVel[i * 3] * dt; spkPos[i * 3 + 1] += spkVel[i * 3 + 1] * dt; spkPos[i * 3 + 2] += spkVel[i * 3 + 2] * dt; }
+  spkGeo.attributes.position.needsUpdate = true;
+  for (let i = cf.length - 1; i >= 0; i--) { const c = cf[i]; c.life -= dt; if (c.life <= 0 || c.p.y < -1) { cf.splice(i, 1); continue; } c.v.y -= 2.2 * dt; c.v.multiplyScalar(0.985); c.p.addScaledVector(c.v, dt); c.p.x += Math.sin(c.life * c.s) * dt * 0.6; c.r.x += dt * c.s; c.r.y += dt * c.s * 0.7; }
+  cfMesh.count = cf.length; cf.forEach((c, i) => { cfDummy.position.copy(c.p); cfDummy.rotation.copy(c.r); cfDummy.updateMatrix(); cfMesh.setMatrixAt(i, cfDummy.matrix); }); cfMesh.instanceMatrix.needsUpdate = true; }
 
 // ---------- physics ----------
 let world, pusherBody, wallColliders = [], floorCol;
@@ -403,12 +452,13 @@ function collectCoin(c) {
   if (c.star) { save.won++; toast('⭐ Lucky token! Spin the wheel'); queueSpin(); buzz(40); return; }
   let v = c.giant ? 10 : 1; if (goldT > 0) v *= 2;
   save.coins += v; save.won += v; gainXP(v); mission('win', v); bumpCombo(); clink(c.giant ? 2 : 1, 1 + Math.min(combo, 30) * 0.025); popup('+' + v); if (c.giant) buzz(40);
+  const t = c.body.translation(); sparkBurst(t.x, -0.1, CFG.front + 0.35, c.giant ? 26 : combo >= 15 ? 10 : 5, c.giant ? 1.4 : 1);
 }
 function collectPrize(p) {
   const key = p.kind + (p.golden ? '_gold' : ''); const first = !save.album[key];
   save.album[key] = (save.album[key] || 0) + 1; gainXP(15); save.coins += 5; mission('plush');
   const P = PLUSH.find(x => x.id === p.kind);
-  showCard(P, p.golden, first);
+  showCard(P, p.golden, first); confetti(p.golden ? 150 : first ? 90 : 40);
   tone(784, 1175, 0.2, 'triangle', 0.07); tone(1175, 1568, 0.3, 'triangle', 0.06, 0.15); buzz([40, 50, 80]);
   checkSets(); persist(); hud();
 }
@@ -452,7 +502,7 @@ function reward(s) {
   if (s.id === 'giant') { dropGiant(); say('🟡 Giant coin incoming'); }
   if (s.id === 'hour') { goldT = Math.max(goldT, 0) + 20; say('⏱️ Double time! Every coin counts ×2 for 20 s'); }
   if (s.id === 'walls') { wallsOn(25); say('🧱 Free walls for 25 s'); }
-  if (s.id === 'jackpot') { rainQ += 50; dropPrize(true); jackFx = 3; say('🎰 JACKPOT! 50 coins + a golden plushie'); buzz([60, 40, 60, 40, 120]); for (let i = 0; i < 6; i++) tone(523 * Math.pow(1.26, i % 4), 1046, 0.25, 'square', 0.05, i * 0.12); }
+  if (s.id === 'jackpot') { rainQ += 50; dropPrize(true); jackFx = 3; confetti(180); say('🎰 JACKPOT! 50 coins + a golden plushie'); buzz([60, 40, 60, 40, 120]); for (let i = 0; i < 6; i++) tone(523 * Math.pow(1.26, i % 4), 1046, 0.25, 'square', 0.05, i * 0.12); }
   else { tone(784, 1568, 0.3, 'triangle', 0.07); buzz(50); }
   persist(); hud();
 }
@@ -512,7 +562,7 @@ function watchAd() {
 function buyPlush(id) { const P = PLUSH.find(p => p.id === id); if (!P || save.album[id]) return; save.album[id] = 1; mission('plush'); showCard(P, false, true); checkSets(); persist(); hud(); toast(`TEST purchase: ${P.name} added (no payment)`); openModal('shop'); }
 function buyBooth(id) { const B = BOOTHS.find(b => b.id === id); if (!B) return; save.unlocked[B.set] = true; persist(); toast(`TEST purchase: ${B.name} unlocked (no payment)`); openModal('booths'); hud(); }
 function checkSets() { for (const S of SETS) { const done = PLUSH.filter(x => x.set === S.id).every(x => save.album[x.id] || save.album[x.id + '_gold']);
-  if (done && !save.setsDone[S.id]) { save.setsDone[S.id] = true; save.coins += S.bonus; toast(`🏆 ${S.name} set complete! +${S.bonus} coins`, 4); } } }
+  if (done && !save.setsDone[S.id]) { save.setsDone[S.id] = true; save.coins += S.bonus; confetti(180); toast(`🏆 ${S.name} set complete! +${S.bonus} coins`, 4); } } }
 // ---------- onboarding ----------
 const vtmp = new THREE.Vector3();
 function proj(x, y, z) { vtmp.set(x, y, z).project(camera); return [(vtmp.x + 1) / 2 * innerWidth, (1 - vtmp.y) / 2 * innerHeight]; }
@@ -622,7 +672,7 @@ function hud() {
 }
 let albumSet = 1;
 function openModal(id) {
-  for (const m of ['album', 'shop', 'out', 'missions', 'booths', 'settings', 'backup', 'away']) $(m).classList.toggle('hidden', m !== id);
+  for (const m of ['album', 'shop', 'out', 'missions', 'booths', 'settings', 'backup', 'away', 'odds']) $(m).classList.toggle('hidden', m !== id);
   if (id === 'album') {
     const S = SETS[albumSet - 1], open = setUnlocked(S), list = PLUSH.filter(p => p.set === S.id);
     $('albumTabs').innerHTML = SETS.map(x => `<button data-set="${x.id}" class="${x.id === albumSet ? 'on' : ''}">${x.name}${setUnlocked(x) ? '' : ' 🔒'}</button>`).join('');
@@ -656,6 +706,11 @@ function openModal(id) {
     $('installBtn').classList.toggle('hidden', !canInstall());
     $('verLine').textContent = `SHOVE v${VERSION} · ${NATIVE ? 'app' : standalone() ? 'home screen' : 'browser'} · Auto lowers resolution and shadows when your phone can't keep up.`;
   }
+  if (id === 'odds') {
+    const pct = w => Math.round(w / wTotal * 1000) / 10 + '%';
+    $('oddsList').innerHTML = WHEEL.map(s => `<div class="od"><span>${s.icon}</span><b>${s.label}</b><em>${pct(s.w)}</em></div>`).join('');
+    $('oddsMore').innerHTML = `<div class="od"><span>⭐</span><b>Lucky token per dropped coin</b><em>1 in ${Math.round(1 / CFG.starChance)}</em></div><div class="od"><span>✨</span><b>Golden plushie</b><em>10%</em></div><div class="od"><span>🧸</span><b>Plushie drop</b><em>every ${CFG.prizeEvery} coins</em></div>`;
+  }
   if (id === 'missions') {
     ensureMissions();
     $('missList').innerHTML = save.missions.list.map((m, i) => { const d = MPOOL.find(x => x.id === m.id), p = Math.min(m.prog, m.goal), done = m.prog >= m.goal;
@@ -678,11 +733,13 @@ $('adBtn').addEventListener('click', watchAd); $('outAd').addEventListener('clic
 $('bBooth').addEventListener('click', () => openModal('booths'));
 $('bShelf').addEventListener('click', () => openShelf()); $('shelfClose').addEventListener('click', closeShelf); $('albumShelf').addEventListener('click', () => { $('album').classList.add('hidden'); openShelf(albumSet); });
 $('bSet').addEventListener('click', () => openModal('settings'));
-document.querySelectorAll('[data-set-k]').forEach(b => b.addEventListener('click', () => { const k = b.dataset.setK; save[k] = !save[k]; persist(); openModal('settings'); }));
+document.querySelectorAll('[data-set-k]').forEach(b => b.addEventListener('click', () => { const k = b.dataset.setK; save[k] = !save[k]; persist(); openModal('settings'); if (!save.sound || !save.music) ambienceOff(); else if (musicOn) ambience(); }));
 document.querySelectorAll('[data-q]').forEach(b => b.addEventListener('click', () => { save.quality = b.dataset.q; persist(); applyQualitySetting(); openModal('settings'); }));
 $('remBtn').addEventListener('click', () => { save.remind = !save.remind; persist(); openModal('settings'); setReminder(save.remind); });
 $('bkCopy').addEventListener('click', () => openBackup('copy')); $('bkLoad').addEventListener('click', () => openBackup('load'));
 $('installBtn').addEventListener('click', install);
+$('oddsBtn').addEventListener('click', () => openModal('odds')); $('wheelOdds').addEventListener('click', () => { $('wheel').classList.add('hidden'); wheelOpen = false; openModal('odds'); if (pendingSpins > 0) $('oddsBack').classList.remove('hidden'); });
+$('oddsBack').addEventListener('click', () => { $('odds').classList.add('hidden'); $('oddsBack').classList.add('hidden'); openWheel(); });
 $('tutReplay').addEventListener('click', () => { save.tut = 0; tutBase = null; persist(); $('settings').classList.add('hidden'); });
 $('coachSkip').addEventListener('click', () => { save.tut = 99; persist(); $('coach').classList.add('hidden'); });
 window.addEventListener('resize', () => { if (shelfOpen) resizeShelf(); });
@@ -691,7 +748,7 @@ $('bShake').addEventListener('click', useShake); $('bWall').addEventListener('cl
 const ray = new THREE.Raycaster(), plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -1.5), hit = new THREE.Vector3();
 let holding = false, holdX = 0, nextHold = 0, aimX = 0;
 function pickX(e) { const r = renderer.domElement.getBoundingClientRect(); ray.setFromCamera({ x: (e.clientX - r.left) / r.width * 2 - 1, y: -(e.clientY - r.top) / r.height * 2 + 1 }, camera); ray.ray.intersectPlane(plane, hit); return hit.x; }
-renderer.domElement.addEventListener('pointerdown', e => { ac(); musicOn = true; if (AC.state === 'suspended') AC.resume(); holding = true; holdX = aimX = pickX(e); dropAt(holdX); nextHold = performance.now() + 380; });
+renderer.domElement.addEventListener('pointerdown', e => { ac(); musicOn = true; if (AC.state === 'suspended') AC.resume(); ambience(); holding = true; holdX = aimX = pickX(e); dropAt(holdX); nextHold = performance.now() + 380; });
 renderer.domElement.addEventListener('pointermove', e => { aimX = pickX(e); if (holding) holdX = aimX; });
 window.addEventListener('pointerup', () => { holding = false; });
 // aim marker (a ghost coin riding above the pusher)
@@ -737,7 +794,7 @@ function frame(now) {
   chuteGlow.material.color.setHex(goldT > 0 ? 0xFFE38A : 0xFFC54D);
   wheel.rotation.z += dt * 0.08; chuteGlow.material.opacity = 0.25 + Math.sin(now / 300) * 0.1;
   if (decoW.visible) { const a = snowGeo.attributes.position.array; for (let i = 0; i < SN; i++) { a[i * 3 + 1] -= dt * (1.2 + (i % 5) * 0.25); a[i * 3] += Math.sin(now / 900 + i) * dt * 0.3; if (a[i * 3 + 1] < -1) a[i * 3 + 1] = 21; } snowGeo.attributes.position.needsUpdate = true; }
-  tutStep(); tutArrow(); qualityTick(rawFt, now);
+  fxTick(dt); glowSync(); tutStep(); tutArrow(); qualityTick(rawFt, now);
   if (shakeFx > 0 || jackFx > 2) { shakeFx = Math.max(0, shakeFx - dt); const k = Math.max(shakeFx, jackFx > 2 ? 0.15 : 0); camera.position.x = Math.sin(now / 20) * k * 0.4; } else camera.position.x = 0;
   // toasts
   if (toastT > 0) { toastT -= dt; if (toastT <= 0) $('toast').classList.remove('on'); }
@@ -746,7 +803,7 @@ function frame(now) {
   saveT += dt; if (saveT > 6) { saveT = 0; save.seen = Date.now(); saveBoard(); }
   music();
   const tC = performance.now();
-  if (!shelfOpen) renderer.render(scene, camera);
+  if (!shelfOpen) { if (glowOn()) composer.render(); else renderer.render(scene, camera); }
   if (perfHook) perfHook(now, dt, tB - tA, performance.now() - tC, steps);
   requestAnimationFrame(frame);
 }
@@ -826,7 +883,7 @@ function nativeHooks() { if (!NATIVE) return;
   if (!boothOpen(booth())) save.booth = 'kermis';
   applyBooth();
   if (fillBoard()) warmBoard();
-  ensureMissions(); refill(); resize(); applyQualitySetting(); hud();
+  makeComposer(); ensureMissions(); refill(); resize(); applyQualitySetting(); hud();
   $('loading').classList.add('hidden');
   nativeHooks(); save.seen = Date.now(); welcome(awayBoot, save.coins - coinsBefore);
   if (webApp() && 'serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
@@ -839,4 +896,4 @@ let perfHook = null;
 function setQuality({ dpr, shadows }) { if (dpr) { renderer.setPixelRatio(dpr); resize(); } if (shadows !== undefined) { key.castShadow = shadows; renderer.shadowMap.needsUpdate = true; } }
 function addLooseCoin() { return addCoin(-3.3 + Math.random() * 6.6, 3.2 + Math.random() * 0.8, -2.2 + Math.random() * 6); }
 function trimTo(n) { while (coins.length > n) { const i = Math.floor(Math.random() * coins.length); world.removeRigidBody(coins[i].body); coins.splice(i, 1); } }
-window.__k = { switchBooth, openShelf, closeShelf, watchAd, buyPlush, BOOTHS, get qTier() { return qTier; }, STRESS, renderer, setQuality, addLooseCoin, trimTo, burst() { rainQ += 50; doShake(); }, set perfHook(f) { perfHook = f; }, get simSteps() { return simSteps; }, ready: false, save, coins, prizes, dropAt, useShake, useWall, useGiant, openModal, CFG, queueSpin, spin, luckyHit, showCard, PLUSH, reward, WHEEL, mission, ringX, get combo() { return combo; }, get rainQ() { return rainQ; }, set goldT(v) { goldT = v; }, bumpCombo, get world() { return world; }, welcome, backupCode, readCode, openBackup, goAway, comeBack };
+window.__k = { switchBooth, openShelf, closeShelf, watchAd, buyPlush, BOOTHS, get qTier() { return qTier; }, STRESS, renderer, setQuality, addLooseCoin, trimTo, burst() { rainQ += 50; doShake(); }, set perfHook(f) { perfHook = f; }, get simSteps() { return simSteps; }, ready: false, save, coins, prizes, dropAt, useShake, useWall, useGiant, openModal, CFG, queueSpin, spin, luckyHit, showCard, PLUSH, reward, WHEEL, mission, ringX, get combo() { return combo; }, get rainQ() { return rainQ; }, set goldT(v) { goldT = v; }, bumpCombo, get world() { return world; }, welcome, backupCode, readCode, openBackup, goAway, comeBack, confetti, sparkBurst, get glow() { return !!glowOn(); } };
