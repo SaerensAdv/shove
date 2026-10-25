@@ -1,4 +1,4 @@
-// SHOVE · Carnival coin pusher · prototype v0.5 (Three.js + Rapier)
+// SHOVE · Carnival coin pusher · prototype v0.6 (Three.js + Rapier, app-ready)
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
@@ -75,12 +75,18 @@ const STRESS = /[?&#]stress/.test(location.search + location.hash) || !!window.S
 const KEY = STRESS ? 'shove_stress_tmp' : 'shove_carnival_v1';
 const save = Object.assign({ coins: CFG.startCoins, lastRefill: Date.now(), xp: 0, level: 1, album: {}, shakes: 3, walls: 1, giants: 1, daily: '', dropped: 0, won: 0, sound: true, board: null, lucky: 0, spins: 0, missions: null, streak: 0, streakDay: '', setsDone: {}, booth: 'kermis', boards: {}, unlocked: {}, tut: 0, music: true, haptics: true, quality: 'auto', ads: { day: '', n: 0 } },
   STRESS ? { coins: 1e6, sound: false, seenIntro: true, seenRing: true, board: null, tut: 99 } : (() => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } })());
-function persist() { if (STRESS) return; try { localStorage.setItem(KEY, JSON.stringify(save)); } catch (e) {} }
+// ---------- native bridge: the Capacitor app build sets window.SHOVE_NATIVE, the web build leaves it empty ----------
+const N = window.SHOVE_NATIVE || null, NATIVE = !!N, VERSION = '0.6';
+let prefT = 0;
+function persist() { if (STRESS) return; const str = JSON.stringify(save); try { localStorage.setItem(KEY, str); } catch (e) {}
+  if (NATIVE && N.Preferences) { clearTimeout(prefT); prefT = setTimeout(() => { N.Preferences.set({ key: KEY, value: JSON.stringify(save) }).catch(() => {}); }, 700); } }
 const xpNeed = lv => 40 + lv * 25;
 if (save.setDone) save.setsDone[1] = true;
 if (save.board && !save.boards.kermis) { save.boards.kermis = save.board; } delete save.board;
 if (!save.tut && save.dropped > 40) save.tut = 99;   // v0.4 players already know the ropes
-const buzz = p => { if (!save.haptics) return; try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} };
+const buzz = p => { if (!save.haptics) return;
+  if (NATIVE && N.Haptics) { const ms = Array.isArray(p) ? Math.max(...p) : p; (ms >= 60 ? N.Haptics.vibrate({ duration: Math.min(ms, 300) }) : N.Haptics.impact({ style: ms >= 30 ? 'HEAVY' : ms >= 15 ? 'MEDIUM' : 'LIGHT' })).catch(() => {}); return; }
+  try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} };
 
 // ---------- audio ----------
 let AC = null, musicOn = false;
@@ -616,7 +622,7 @@ function hud() {
 }
 let albumSet = 1;
 function openModal(id) {
-  for (const m of ['album', 'shop', 'out', 'missions', 'booths', 'settings']) $(m).classList.toggle('hidden', m !== id);
+  for (const m of ['album', 'shop', 'out', 'missions', 'booths', 'settings', 'backup', 'away']) $(m).classList.toggle('hidden', m !== id);
   if (id === 'album') {
     const S = SETS[albumSet - 1], open = setUnlocked(S), list = PLUSH.filter(p => p.set === S.id);
     $('albumTabs').innerHTML = SETS.map(x => `<button data-set="${x.id}" class="${x.id === albumSet ? 'on' : ''}">${x.name}${setUnlocked(x) ? '' : ' 🔒'}</button>`).join('');
@@ -646,6 +652,9 @@ function openModal(id) {
   if (id === 'settings') {
     document.querySelectorAll('[data-set-k]').forEach(b => { const k = b.dataset.setK; b.classList.toggle('on', !!save[k]); b.textContent = save[k] ? 'ON' : 'OFF'; });
     document.querySelectorAll('[data-q]').forEach(b => b.classList.toggle('on', save.quality === b.dataset.q));
+    $('remRow').classList.toggle('hidden', !(NATIVE && N.LocalNotifications)); $('remBtn').classList.toggle('on', !!save.remind); $('remBtn').textContent = save.remind ? 'ON' : 'OFF';
+    $('installBtn').classList.toggle('hidden', !canInstall());
+    $('verLine').textContent = `SHOVE v${VERSION} · ${NATIVE ? 'app' : standalone() ? 'home screen' : 'browser'} · Auto lowers resolution and shadows when your phone can't keep up.`;
   }
   if (id === 'missions') {
     ensureMissions();
@@ -671,6 +680,9 @@ $('bShelf').addEventListener('click', () => openShelf()); $('shelfClose').addEve
 $('bSet').addEventListener('click', () => openModal('settings'));
 document.querySelectorAll('[data-set-k]').forEach(b => b.addEventListener('click', () => { const k = b.dataset.setK; save[k] = !save[k]; persist(); openModal('settings'); }));
 document.querySelectorAll('[data-q]').forEach(b => b.addEventListener('click', () => { save.quality = b.dataset.q; persist(); applyQualitySetting(); openModal('settings'); }));
+$('remBtn').addEventListener('click', () => { save.remind = !save.remind; persist(); openModal('settings'); setReminder(save.remind); });
+$('bkCopy').addEventListener('click', () => openBackup('copy')); $('bkLoad').addEventListener('click', () => openBackup('load'));
+$('installBtn').addEventListener('click', install);
 $('tutReplay').addEventListener('click', () => { save.tut = 0; tutBase = null; persist(); $('settings').classList.add('hidden'); });
 $('coachSkip').addEventListener('click', () => { save.tut = 99; persist(); $('coach').classList.add('hidden'); });
 window.addEventListener('resize', () => { if (shelfOpen) resizeShelf(); });
@@ -731,19 +743,82 @@ function frame(now) {
   if (toastT > 0) { toastT -= dt; if (toastT <= 0) $('toast').classList.remove('on'); }
   else if (toastQ.length) { const [t, s] = toastQ.shift(); $('toast').textContent = t; $('toast').classList.add('on'); toastT = s; }
   hudT += dt; if (hudT > 0.5) { hudT = 0; refill(); hud(); }
-  saveT += dt; if (saveT > 6) { saveT = 0; saveBoard(); }
+  saveT += dt; if (saveT > 6) { saveT = 0; save.seen = Date.now(); saveBoard(); }
   music();
   const tC = performance.now();
   if (!shelfOpen) renderer.render(scene, camera);
   if (perfHook) perfHook(now, dt, tB - tA, performance.now() - tC, steps);
   requestAnimationFrame(frame);
 }
-document.addEventListener('visibilitychange', () => { if (document.hidden) saveBoard(); });
-window.addEventListener('pagehide', saveBoard);
+// ---------- lifecycle: pause when hidden, welcome back on return ----------
+let hiddenAt = 0;
+function goAway() { save.seen = Date.now(); saveBoard(); persist(); if (!hiddenAt) hiddenAt = Date.now(); holding = false; try { AC && AC.state === 'running' && AC.suspend(); } catch (e) {} }
+function comeBack() { if (!hiddenAt) return; const away = Date.now() - hiddenAt; hiddenAt = 0; last = performance.now(); acc = 0; save.seen = Date.now();
+  try { AC && musicOn && AC.resume(); } catch (e) {}
+  const before = save.coins; refill(); hud(); welcome(away, save.coins - before); }
+document.addEventListener('visibilitychange', () => { if (document.hidden) goAway(); else comeBack(); });
+window.addEventListener('pagehide', goAway);
+function awayText(ms) { const m = Math.round(ms / 6e4); if (m < 60) return `${m} min`; const h = Math.floor(m / 60); if (h < 24) return `${h} h ${String(m % 60).padStart(2, '0')} min`; const d = Math.floor(h / 24); return `${d} day${d > 1 ? 's' : ''}`; }
+function welcome(away, got) {
+  if (STRESS || away < 5 * 6e4 || save.tut < TUT.length) return;
+  ensureMissions();
+  const ready = save.missions.list.filter(m => !m.claimed && m.prog >= m.goal).length, daily = save.daily !== today();
+  const items = [];
+  if (got > 0) items.push(['🪙', `+${got} free coin${got > 1 ? 's' : ''}`, save.coins >= CFG.refillCap ? 'the hopper is full again' : 'refilled while you were gone']);
+  else if (save.coins >= CFG.refillCap) items.push(['🪙', 'Hopper is full', `${save.coins} coins ready to drop`]);
+  if (daily) items.push(['🎁', 'Daily bonus ready', `+${CFG.dailyBonus} coins in the coin booth`]);
+  if (ready) items.push(['✅', `${ready} task${ready > 1 ? 's' : ''} ready to claim`, 'in daily tasks']);
+  if (!items.length) return;
+  $('awayLine').textContent = `You were away ${awayText(away)}. The machine kept warm.`;
+  $('awayList').innerHTML = items.map(([i, b, s]) => `<div class="aw"><span>${i}</span><div><b>${b}</b><small>${s}</small></div></div>`).join('');
+  $('awayGo').textContent = daily ? 'GRAB THE DAILY BONUS' : 'BACK TO THE MACHINE';
+  $('awayGo').onclick = () => { $('away').classList.add('hidden'); if (daily) openModal('shop'); };
+  openModal('away'); tone(523, 784, 0.25, 'triangle', 0.05); buzz(15);
+}
+// ---------- backup code: move your progress to another phone or into the app ----------
+const B64 = { enc: s => btoa(String.fromCharCode(...new TextEncoder().encode(s))), dec: s => new TextDecoder().decode(Uint8Array.from(atob(s), c => c.charCodeAt(0))) };
+function backupCode() { const o = Object.assign({}, save); delete o.boards; delete o.board; o.v = VERSION; o.at = Date.now(); return 'SHOVE1.' + B64.enc(JSON.stringify(o)); }
+function readCode(code) { const c = (code || '').trim().replace(/\s+/g, ''); if (!c.startsWith('SHOVE1.')) return null; try { const o = JSON.parse(B64.dec(c.slice(7))); return o && typeof o.coins === 'number' && o.album ? o : null; } catch (e) { return null; } }
+function openBackup(mode) { openModal('backup'); const ta = $('bkText'); $('bkMsg').textContent = '';
+  if (mode === 'copy') { $('bkTitle').textContent = 'YOUR BACKUP CODE'; $('bkInfo').textContent = 'Paste this code on another phone (or in the app later) to bring your coins, plushies, level and streak along. Machine boards start fresh.'; ta.value = backupCode(); ta.readOnly = true; $('bkAct').textContent = 'COPY CODE'; $('bkAct').onclick = copyCode; }
+  else { $('bkTitle').textContent = 'RESTORE PROGRESS'; $('bkInfo').textContent = 'Paste a SHOVE backup code. This replaces the progress on this phone.'; ta.value = ''; ta.readOnly = false; $('bkAct').textContent = 'RESTORE'; $('bkAct').onclick = restoreCode; setTimeout(() => ta.focus(), 50); } }
+async function copyCode() { const ta = $('bkText'); try { await navigator.clipboard.writeText(ta.value); $('bkMsg').textContent = 'Copied ✓ Keep it somewhere safe.'; } catch (e) { ta.select(); try { document.execCommand('copy'); $('bkMsg').textContent = 'Copied ✓'; } catch (e2) { $('bkMsg').textContent = 'Select the code and copy it by hand.'; } } buzz(15); }
+let restoreArm = 0;
+function restoreCode() { const o = readCode($('bkText').value); if (!o) { $('bkMsg').textContent = "That isn't a SHOVE backup code."; buzz([20, 40, 20]); return; }
+  const owned = Object.keys(o.album).filter(k => !k.endsWith('_gold')).length;
+  if (Date.now() - restoreArm > 10000) { restoreArm = Date.now(); $('bkMsg').textContent = `Found: level ${o.level}, ${o.coins} coins, ${owned} plushies. Tap RESTORE again to replace this phone's progress.`; return; }
+  const n = Object.assign({}, o, { boards: {}, seen: Date.now() }); delete n.v; delete n.at;
+  hiddenAt = 0; window.removeEventListener('pagehide', goAway); document.removeEventListener('visibilitychange', goAway);
+  Object.keys(save).forEach(k => delete save[k]); Object.assign(save, n); persist();
+  if (NATIVE && N.Preferences) N.Preferences.set({ key: KEY, value: JSON.stringify(save) }).finally(() => location.reload()); else location.reload(); }
+// ---------- install on the home screen (web) ----------
+let installEvt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; });
+const standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const isIOS = () => /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const webApp = () => !NATIVE && !STRESS && window.isSecureContext && /^https?:$/.test(location.protocol);
+const canInstall = () => webApp() && !standalone();
+async function install() { if (installEvt) { installEvt.prompt(); const r = await installEvt.userChoice.catch(() => null); installEvt = null; if (r && r.outcome === 'accepted') toast('📲 SHOVE is on your home screen'); return; }
+  $('settings').classList.add('hidden'); toast(isIOS() ? 'In Safari: tap Share ⬆️, then “Add to Home Screen”' : 'Open the browser menu ⋮, then “Install app” or “Add to Home screen”', 5); }
+// ---------- daily reminder (app only) ----------
+async function setReminder(on) { const L = N && N.LocalNotifications; if (!L) return;
+  try { if (on) { const p = await L.requestPermissions(); if (p.display !== 'granted') { save.remind = false; persist(); toast('Notifications are off for SHOVE in your phone settings'); openModal('settings'); return; }
+      await L.cancel({ notifications: [{ id: 1 }] }).catch(() => {});
+      await L.schedule({ notifications: [{ id: 1, title: 'The fair is open 🎪', body: 'Your daily bonus and three new tasks are waiting.', schedule: { on: { hour: 19, minute: 0 }, allowWhileIdle: true } }] });
+      toast('⏰ Reminder set for 19:00 every day'); }
+    else await L.cancel({ notifications: [{ id: 1 }] }); } catch (e) { toast('Could not set the reminder'); } }
+function nativeHooks() { if (!NATIVE) return;
+  if (N.StatusBar) { N.StatusBar.setBackgroundColor({ color: '#1A0F14' }).catch(() => {}); N.StatusBar.setStyle({ style: 'DARK' }).catch(() => {}); }
+  if (N.App) N.App.addListener('backButton', () => {
+    const open = [...document.querySelectorAll('.modal')].find(m => !m.classList.contains('hidden') && m.id !== 'wheel');
+    if (open) open.classList.add('hidden'); else if (shelfOpen) closeShelf(); else { goAway(); N.App.minimizeApp().catch(() => {}); } }); }
 
 // ---------- boot ----------
 (async () => {
+  if (NATIVE && N.Preferences && !STRESS && !localStorage.getItem(KEY)) {   // iOS can wipe WebView storage: restore from native storage
+    try { const r = await N.Preferences.get({ key: KEY }); if (r && r.value) { localStorage.setItem(KEY, r.value); location.reload(); return; } } catch (e) {} }
   await RAPIER.init();
+  const coinsBefore = save.coins, awayBoot = save.seen ? Date.now() - save.seen : 0;
   initWorld();
   coinMesh = new THREE.InstancedMesh(new THREE.CylinderGeometry(CFG.coinR, CFG.coinR, CFG.coinH * 2, 28), [M.gold, M.goldFace, M.goldFace], MAXI); coinMesh.castShadow = true; coinMesh.receiveShadow = true; coinMesh.frustumCulled = false; scene.add(coinMesh);
   giantMesh = new THREE.InstancedMesh(new THREE.CylinderGeometry(CFG.coinR * 2.1, CFG.coinR * 2.1, CFG.coinH * 4, 36), [M.gold, M.goldFace, M.goldFace], 20); giantMesh.castShadow = true; giantMesh.frustumCulled = false; scene.add(giantMesh);
@@ -753,6 +828,8 @@ window.addEventListener('pagehide', saveBoard);
   if (fillBoard()) warmBoard();
   ensureMissions(); refill(); resize(); applyQualitySetting(); hud();
   $('loading').classList.add('hidden');
+  nativeHooks(); save.seen = Date.now(); welcome(awayBoot, save.coins - coinsBefore);
+  if (webApp() && 'serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
 
   requestAnimationFrame(frame);
   window.__k.ready = true;
@@ -762,4 +839,4 @@ let perfHook = null;
 function setQuality({ dpr, shadows }) { if (dpr) { renderer.setPixelRatio(dpr); resize(); } if (shadows !== undefined) { key.castShadow = shadows; renderer.shadowMap.needsUpdate = true; } }
 function addLooseCoin() { return addCoin(-3.3 + Math.random() * 6.6, 3.2 + Math.random() * 0.8, -2.2 + Math.random() * 6); }
 function trimTo(n) { while (coins.length > n) { const i = Math.floor(Math.random() * coins.length); world.removeRigidBody(coins[i].body); coins.splice(i, 1); } }
-window.__k = { switchBooth, openShelf, closeShelf, watchAd, buyPlush, BOOTHS, get qTier() { return qTier; }, STRESS, renderer, setQuality, addLooseCoin, trimTo, burst() { rainQ += 50; doShake(); }, set perfHook(f) { perfHook = f; }, get simSteps() { return simSteps; }, ready: false, save, coins, prizes, dropAt, useShake, useWall, useGiant, openModal, CFG, queueSpin, spin, luckyHit, showCard, PLUSH, reward, WHEEL, mission, ringX, get combo() { return combo; }, get rainQ() { return rainQ; }, set goldT(v) { goldT = v; }, bumpCombo, get world() { return world; } };
+window.__k = { switchBooth, openShelf, closeShelf, watchAd, buyPlush, BOOTHS, get qTier() { return qTier; }, STRESS, renderer, setQuality, addLooseCoin, trimTo, burst() { rainQ += 50; doShake(); }, set perfHook(f) { perfHook = f; }, get simSteps() { return simSteps; }, ready: false, save, coins, prizes, dropAt, useShake, useWall, useGiant, openModal, CFG, queueSpin, spin, luckyHit, showCard, PLUSH, reward, WHEEL, mission, ringX, get combo() { return combo; }, get rainQ() { return rainQ; }, set goldT(v) { goldT = v; }, bumpCombo, get world() { return world; }, welcome, backupCode, readCode, openBackup, goAway, comeBack };
