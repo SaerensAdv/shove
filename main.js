@@ -1,0 +1,578 @@
+// SHOVE · Carnival coin pusher · prototype v0.4 (Three.js + Rapier)
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
+import RAPIER from '@dimforge/rapier3d-compat';
+
+const $ = id => document.getElementById(id);
+const CFG = {
+  halfW: 4, front: 5, gutterFrom: 2.2, coinR: 0.42, coinH: 0.08, maxCoins: 230,
+  pushBack: -6.0, pushFwd: -4.5, pushHalfZ: 2.0, deckY: 0.7, pushSpeed: 1.25,
+  refillSecs: 30, refillCap: 60, startCoins: 120, dailyBonus: 60, prizeEvery: 25,
+  dropY: 3.0, dropZ: -4.7, ringY: 2.05, ringTol: 0.42, luckyNeed: 3, starChance: 1 / 40, rainCap: 330,
+};
+const PLUSH = [
+  { id: 'bear',  name: 'Bramblebear', col: 0xB07A4F, ear: 'round' },
+  { id: 'bunny', name: 'Hopsy',       col: 0xF1E4D8, ear: 'long' },
+  { id: 'frog',  name: 'Lilypad',     col: 0x6CC36A, ear: 'eyes' },
+  { id: 'duck',  name: 'Quackers',    col: 0xFFD84D, ear: 'beak' },
+  { id: 'pig',   name: 'Truffle',     col: 0xF5A3B5, ear: 'snout' },
+  { id: 'cat',   name: 'Whisk',       col: 0x8E8E9A, ear: 'tri' },
+  { id: 'panda', name: 'Bao',         col: 0xFAFAFA, ear: 'panda' },
+  { id: 'fox',   name: 'Ember',       col: 0xEF7A35, ear: 'fox' },
+  { id: 'owl',      name: 'Hoot',     col: 0x8B6A4E, ear: 'owl', set: 2 },
+  { id: 'mouse',    name: 'Squeak',   col: 0xC9C2CF, ear: 'mouse', set: 2 },
+  { id: 'raccoon',  name: 'Bandit',   col: 0x8A8A94, ear: 'raccoon', set: 2 },
+  { id: 'hedgehog', name: 'Prickles', col: 0xB38A5E, ear: 'spiky', set: 2 },
+  { id: 'penguin',  name: 'Waddles',  col: 0x2E3340, ear: 'penguin', set: 2 },
+  { id: 'lion',     name: 'Leo',      col: 0xEDB247, ear: 'mane', set: 2 },
+  { id: 'unicorn',  name: 'Sparkle',  col: 0xF7F1FA, ear: 'horn', set: 2 },
+  { id: 'axolotl',  name: 'Mochi',    col: 0xF7A9C8, ear: 'gills', set: 2 },
+];
+PLUSH.forEach(p => { p.set ||= 1; });
+const SETS = [{ id: 1, name: 'GARDEN PALS', lv: 1, bonus: 200 }, { id: 2, name: 'NIGHT MARKET', lv: 4, bonus: 300 }];
+const setUnlocked = s => save.level >= s.lv;
+const WHEEL = [
+  { id: 'rain15', label: '15 COINS', icon: '🪙', w: 22, col: '#D8343F', ink: '#F6EBD5' },
+  { id: 'plush', label: 'PLUSHIE', icon: '🧸', w: 13, col: '#F6EBD5', ink: '#5A1020' },
+  { id: 'shake', label: '+2 SHAKE', icon: '〰️', w: 11, col: '#2F8FA6', ink: '#F6EBD5' },
+  { id: 'rain25', label: '25 COINS', icon: '💰', w: 14, col: '#D8343F', ink: '#F6EBD5' },
+  { id: 'giant', label: 'GIANT', icon: '🟡', w: 12, col: '#F6EBD5', ink: '#5A1020' },
+  { id: 'hour', label: '×2 TIME', icon: '⏱️', w: 11, col: '#2F8FA6', ink: '#F6EBD5' },
+  { id: 'walls', label: 'WALLS', icon: '🧱', w: 11, col: '#D8343F', ink: '#F6EBD5' },
+  { id: 'jackpot', label: 'JACKPOT', icon: '🎰', w: 6, col: '#FFD25A', ink: '#5A1020' },
+];
+const MPOOL = [
+  { id: 'win', t: n => `Win ${n} coins`, g: [40, 80], rw: { coins: 25 } },
+  { id: 'lucky', t: n => `Hit the lucky ring ${n}×`, g: [2, 4], rw: { shakes: 1 } },
+  { id: 'plush', t: n => `Win ${n} plush${n > 1 ? 'ies' : 'ie'}`, g: [1, 2], rw: { coins: 30 } },
+  { id: 'spin', t: n => `Spin the wheel ${n}×`, g: [1, 2], rw: { giants: 1 } },
+  { id: 'drop', t: n => `Drop ${n} coins`, g: [60, 120], rw: { coins: 20 } },
+  { id: 'power', t: n => `Use ${n} power-up${n > 1 ? 's' : ''}`, g: [1, 2], rw: { walls: 1 } },
+  { id: 'combo', t: n => `Hit a ×${n} combo`, g: [8, 12], rw: { coins: 25 }, max: true },
+];
+// ---------- save ----------
+const STRESS = /[?&#]stress/.test(location.search + location.hash) || !!window.SHOVE_STRESS;
+const KEY = STRESS ? 'shove_stress_tmp' : 'shove_carnival_v1';
+const save = Object.assign({ coins: CFG.startCoins, lastRefill: Date.now(), xp: 0, level: 1, album: {}, shakes: 3, walls: 1, giants: 1, daily: '', dropped: 0, won: 0, sound: true, board: null, lucky: 0, spins: 0, missions: null, streak: 0, streakDay: '', setsDone: {} },
+  STRESS ? { coins: 1e6, sound: false, seenIntro: true, seenRing: true, board: null } : (() => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } })());
+function persist() { if (STRESS) return; try { localStorage.setItem(KEY, JSON.stringify(save)); } catch (e) {} }
+const xpNeed = lv => 40 + lv * 25;
+if (save.setDone) save.setsDone[1] = true;
+const buzz = p => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} };
+
+// ---------- audio ----------
+let AC = null, musicOn = false;
+function ac() { return AC ||= new (window.AudioContext || window.webkitAudioContext)(); }
+function tone(f0, f1, d, type = 'sine', v = 0.05, delay = 0) { if (!save.sound) return; try { const a = ac(), o = a.createOscillator(), g = a.createGain(), t = a.currentTime + delay; o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(30, f1), t + d); g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d); o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + d + 0.02); } catch (e) {} }
+let lastClink = 0;
+function clink(v = 1, up = 1) { const n = performance.now(); if (n - lastClink < 40) return; lastClink = n; const f = (1700 + Math.random() * 600) * up; tone(f, f * 1.5, 0.08, 'triangle', 0.035 * v); tone(3200 * up + Math.random() * 400, 3000 * up, 0.05, 'sine', 0.015 * v); }
+function clatter() { tone(900 + Math.random() * 500, 700, 0.05, 'triangle', 0.02); tone(2400 + Math.random() * 900, 2000, 0.03, 'square', 0.006, 0.02); }
+// tiny calliope waltz
+const MEL = [67, 72, 76, 74, 72, 67, 69, 71, 72, 0, 64, 67, 72, 71, 69, 67, 65, 64, 62, 0, 67, 72, 76, 79, 77, 76, 74, 72, 71, 72];
+let mi = 0, nextNote = 0;
+function music() {
+  if (!musicOn || !save.sound || !AC) return;
+  while (nextNote < AC.currentTime + 0.3) {
+    const m = MEL[mi % MEL.length], t = nextNote - AC.currentTime;
+    if (m) { const f = 440 * Math.pow(2, (m - 69) / 12); tone(f, f, 0.32, 'square', 0.012, Math.max(0, t)); tone(f * 2, f * 2, 0.2, 'sine', 0.008, Math.max(0, t)); }
+    if (mi % 3 === 0) { tone(110, 100, 0.25, 'triangle', 0.02, Math.max(0, t)); }
+    mi++; nextNote += 0.24;
+  }
+}
+
+// ---------- three ----------
+const renderer = new THREE.WebGLRenderer({ canvas: $('cv'), antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.95;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const scene = new THREE.Scene();
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture; scene.environmentIntensity = 0.55;
+const camera = new THREE.PerspectiveCamera(46, 1, 0.1, 200);
+function resize() { const w = window.innerWidth, h = window.innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h;
+  const portrait = h > w; camera.fov = portrait ? 50 : 40; camera.position.set(0, portrait ? 16.4 : 12.5, portrait ? 13.4 : 12.5); camera.lookAt(0, -0.6, portrait ? -0.6 : 0.4); camera.updateProjectionMatrix(); }
+window.addEventListener('resize', resize);
+
+// night fair background
+function gradientTex(stops) { const c = document.createElement('canvas'); c.width = 2; c.height = 256; const x = c.getContext('2d'); const g = x.createLinearGradient(0, 0, 0, 256); stops.forEach(([p, col]) => g.addColorStop(p, col)); x.fillStyle = g; x.fillRect(0, 0, 2, 256); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; }
+scene.background = gradientTex([[0, '#1B0F2E'], [0.55, '#4A1C3A'], [1, '#C8553D']]);
+scene.fog = new THREE.Fog(0x2A1230, 30, 80);
+// lights
+scene.add(new THREE.HemisphereLight(0xFFE7C2, 0x2A1230, 0.55));
+const key = new THREE.DirectionalLight(0xFFF1D6, 1.6); key.position.set(4, 14, 8); key.castShadow = true;
+key.shadow.mapSize.set(1024, 1024); Object.assign(key.shadow.camera, { left: -7, right: 7, top: 9, bottom: -9, near: 1, far: 40 }); key.shadow.bias = -0.0005; scene.add(key);
+const warm = new THREE.PointLight(0xFF9A4D, 8, 18, 2); warm.position.set(-5, 5, 3); scene.add(warm);
+const pink = new THREE.PointLight(0xFF5FA2, 5, 16, 2); pink.position.set(5, 4, -1); scene.add(pink);
+
+// materials
+const M = {
+  gold: new THREE.MeshStandardMaterial({ color: 0xD99A22, metalness: 1, roughness: 0.34 }),
+  goldPlush: new THREE.MeshStandardMaterial({ color: 0xF2C14E, metalness: 0.9, roughness: 0.3 }),
+  chrome: new THREE.MeshStandardMaterial({ color: 0xDDE3E8, metalness: 1, roughness: 0.18 }),
+  floor: new THREE.MeshStandardMaterial({ color: 0x2B1846, metalness: 0.6, roughness: 0.35 }),
+  red: new THREE.MeshStandardMaterial({ color: 0xA51E2A, roughness: 0.55, metalness: 0.15 }),
+  cream: new THREE.MeshStandardMaterial({ color: 0xF6EBD5, roughness: 0.6 }),
+  dark: new THREE.MeshStandardMaterial({ color: 0x1A0F14, roughness: 0.8 }),
+  glass: new THREE.MeshPhysicalMaterial({ color: 0xffffff, transparent: true, opacity: 0.12, roughness: 0.05, metalness: 0, transmission: 0 }),
+  bulbOn: new THREE.MeshBasicMaterial({ color: 0xFFE38A }), bulbOff: new THREE.MeshBasicMaterial({ color: 0x6A4A22 }),
+  black: new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.4 }),
+  starSide: new THREE.MeshStandardMaterial({ color: 0xE0A630, metalness: 1, roughness: 0.3 }),
+  white: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.7 }),
+};
+function coinFaceTex(base, hi, lo, star) {
+  const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d');
+  x.fillStyle = base; x.fillRect(0, 0, 128, 128);
+  const ring = (r, w, col) => { x.beginPath(); x.arc(64, 64, r, 0, Math.PI * 2); x.lineWidth = w; x.strokeStyle = col; x.stroke(); };
+  ring(58, 6, lo); ring(57, 2, hi); ring(46, 2, lo); ring(45, 1.5, hi);
+  const starPath = (cx, cy, R, r) => { x.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r : R; x.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); } x.closePath(); };
+  if (star) { starPath(66, 66, 34, 15); x.fillStyle = lo; x.fill(); starPath(63, 63, 34, 15); x.fillStyle = star; x.fill(); }
+  else { x.font = '900 52px Bungee, Impact, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = lo; x.fillText('S', 66, 68); x.fillStyle = hi; x.fillText('S', 63, 65); }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+}
+function stripeTex(a, b, n = 8) { const c = document.createElement('canvas'); c.width = 256; c.height = 64; const x = c.getContext('2d'); for (let i = 0; i < n; i++) { x.fillStyle = i % 2 ? b : a; x.fillRect(i * 256 / n, 0, 256 / n, 64); } const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; }
+function signTex() { const c = document.createElement('canvas'); c.width = 512; c.height = 128; const x = c.getContext('2d'); x.fillStyle = '#2A0E16'; x.fillRect(0, 0, 512, 128); x.font = '900 86px Bungee, Impact, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#8A5A12'; x.fillText('SHOVE', 256, 70); x.fillStyle = '#FFD25A'; x.fillText('SHOVE', 256, 64); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; }
+M.goldFace = new THREE.MeshStandardMaterial({ map: coinFaceTex('#E3AA34', '#FFE7A0', '#8A5A12'), metalness: 1, roughness: 0.32 });
+M.starFace = new THREE.MeshStandardMaterial({ map: coinFaceTex('#D02A3C', '#FF8A96', '#5A0A14', '#FFD25A'), metalness: 0.35, roughness: 0.35, emissive: 0x3A0510 });
+const tint = (col, golden, mat) => golden ? mat : new THREE.MeshStandardMaterial({ color: col, roughness: 0.92 });
+const box = (w, h, d, mat, x, y, z, parent = scene, r = 0.06) => { const m = new THREE.Mesh(r ? new RoundedBoxGeometry(w, h, d, 2, r) : new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); m.castShadow = m.receiveShadow = true; parent.add(m); return m; };
+
+// cabinet
+const W = CFG.halfW;
+box(W * 2 + 0.2, 0.3, 12.5, M.floor, 0, -0.15, -1.2, scene, 0.02).castShadow = false;
+box(W * 2 + 1.8, 1.4, 1.2, M.red, 0, -0.9, CFG.front + 0.9);                      // front apron
+box(W * 2 + 1.8, 0.12, 0.7, M.chrome, 0, -0.18, CFG.front + 0.35, scene, 0.03);   // win chute lip
+const chuteGlow = new THREE.Mesh(new THREE.PlaneGeometry(W * 2, 0.5), new THREE.MeshBasicMaterial({ color: 0xFFC54D, transparent: true, opacity: 0.35 })); chuteGlow.rotation.x = -Math.PI / 2; chuteGlow.position.set(0, -0.1, CFG.front + 0.3); scene.add(chuteGlow);
+for (const sx of [-1, 1]) {
+  box(0.35, 3.4, 9.4, M.red, sx * (W + 0.35), 1.2, -2.6);                             // side cabinet (back part)
+  const g = new THREE.Mesh(new THREE.BoxGeometry(0.05, 2.4, 9.2), M.glass); g.position.set(sx * (W + 0.06), 1.3, -2.6); scene.add(g);
+  box(0.6, 0.5, CFG.front - CFG.gutterFrom + 1.4, M.dark, sx * (W + 0.55), -0.5, (CFG.front + CFG.gutterFrom) / 2 + 0.5); // gutter trough
+  for (let i = 0; i < 4; i++) box(0.12, 4.6, 0.12, M.chrome, sx * (W + 0.6), 2.2, -7 + i * 2.6, scene, 0.03);
+}
+box(W * 2 + 1.0, 4.5, 0.4, M.red, 0, 2.6, -7.4);                                     // back panel
+const sign = new THREE.Mesh(new THREE.PlaneGeometry(6.4, 1.6), new THREE.MeshBasicMaterial({ map: signTex() })); sign.position.set(0, 4.1, -7.15); scene.add(sign);
+const backWall = box(W * 2, 2.2, 0.3, M.cream, 0, CFG.deckY + 1.13, -5.35, scene, 0.04);  // fixed wall over the pusher deck
+// awning
+const aw = new THREE.Mesh(new THREE.CylinderGeometry(6.5, 6.5, 12, 32, 1, true, Math.PI * 1.25, Math.PI * 0.5), new THREE.MeshStandardMaterial({ map: stripeTex('#D8343F', '#F6EBD5', 12), side: THREE.DoubleSide, roughness: 0.8 }));
+aw.rotation.z = Math.PI / 2; aw.position.set(0, 2.2, -2.5); scene.add(aw);
+// bulbs around the sign and along the awning edge
+const bulbs = [];
+const bulbGeo = new THREE.SphereGeometry(0.1, 10, 8);
+for (let i = 0; i < 18; i++) { const b = new THREE.Mesh(bulbGeo, M.bulbOn); const a = i / 17; b.position.set(-3.3 + a * 6.6, 5.0, -7.1); scene.add(b); bulbs.push(b); }
+for (let i = 0; i < 18; i++) { const b = new THREE.Mesh(bulbGeo, M.bulbOn); const a = i / 17; b.position.set(-3.3 + a * 6.6, 3.2, -7.1); scene.add(b); bulbs.push(b); }
+// string lights over the fair
+for (let s = 0; s < 3; s++) for (let i = 0; i < 26; i++) { const a = i / 25, x = -14 + a * 28, y = 9 + s * 2.2 - Math.sin(a * Math.PI) * 1.6; const b = new THREE.Mesh(bulbGeo, new THREE.MeshBasicMaterial({ color: [0xFFE38A, 0xFF7A8A, 0x8AE8FF][i % 3] })); b.position.set(x, y, -16 - s * 4); b.scale.setScalar(1.6); scene.add(b); bulbs.push(b); }
+// ferris wheel silhouette
+const wheel = new THREE.Group(); wheel.position.set(-13, 9, -30); scene.add(wheel);
+{ const ringM = new THREE.MeshBasicMaterial({ color: 0x3A1E4A }); const ring = new THREE.Mesh(new THREE.TorusGeometry(7, 0.15, 6, 48), ringM); wheel.add(ring);
+  for (let i = 0; i < 12; i++) { const sp = new THREE.Mesh(new THREE.BoxGeometry(0.12, 14, 0.12), ringM); sp.rotation.z = i / 12 * Math.PI; wheel.add(sp); const l = new THREE.Mesh(bulbGeo, new THREE.MeshBasicMaterial({ color: i % 2 ? 0xFFE38A : 0xFF6FA8 })); l.scale.setScalar(2.2); l.position.set(Math.cos(i / 12 * Math.PI * 2) * 7, Math.sin(i / 12 * Math.PI * 2) * 7, 0.2); wheel.add(l); }
+  const leg = new THREE.Mesh(new THREE.BoxGeometry(0.3, 10, 0.3), ringM); leg.position.set(-2.5, -4.5, 0); leg.rotation.z = 0.28; scene.add(leg); leg.position.add(wheel.position); const leg2 = leg.clone(); leg2.position.x = wheel.position.x + 2.5; leg2.rotation.z = -0.28; scene.add(leg2); }
+// pusher (visual)
+const pusherMesh = new THREE.Group(); scene.add(pusherMesh);
+box(W * 2 - 0.04, CFG.deckY, CFG.pushHalfZ * 2, M.chrome, 0, CFG.deckY / 2, 0, pusherMesh, 0.05);
+for (let i = 0; i < 7; i++) box(0.5, 0.06, 0.04, M.red, -3 + i, CFG.deckY * 0.5, CFG.pushHalfZ + 0.01, pusherMesh, 0);
+// wall power-up (visual)
+const wallMeshes = [-1, 1].map(sx => { const m = box(0.18, 0.7, CFG.front - CFG.gutterFrom, new THREE.MeshStandardMaterial({ color: 0x5AC8E0, emissive: 0x1B6A7A, transparent: true, opacity: 0.8 }), sx * (W + 0.09), 0.35, (CFG.front + CFG.gutterFrom) / 2); m.visible = false; return m; });
+
+// lucky ring: a sweeping hoop over the pusher shelf. Drop a coin through it to light a lamp.
+const ringMat = new THREE.MeshStandardMaterial({ color: 0xFFD25A, emissive: 0xFF7A00, emissiveIntensity: 0.6, metalness: 0.7, roughness: 0.25 });
+const ring = new THREE.Mesh(new THREE.TorusGeometry(0.58, 0.075, 12, 40), ringMat); ring.rotation.x = Math.PI / 2; scene.add(ring);
+const ringBulbs = []; for (let i = 0; i < 8; i++) { const b = new THREE.Mesh(bulbGeo, M.bulbOn); b.scale.setScalar(0.7); const a = i / 8 * Math.PI * 2; b.position.set(Math.cos(a) * 0.58, Math.sin(a) * 0.58, -0.06); ring.add(b); ringBulbs.push(b); }
+const lampOff = new THREE.MeshStandardMaterial({ color: 0x5A2A20, roughness: 0.4 }), lampOn = new THREE.MeshBasicMaterial({ color: 0xFFE38A });
+const lamps = [-1.1, 0, 1.1].map(x => { const l = new THREE.Mesh(new THREE.SphereGeometry(0.24, 18, 12), lampOff); l.position.set(x, CFG.deckY + 1.72, -5.17); scene.add(l); const rim = new THREE.Mesh(new THREE.TorusGeometry(0.27, 0.05, 8, 24), M.chrome); rim.position.copy(l.position); scene.add(rim); return l; });
+let ringT = 0, ringFlash = 0;
+const ringX = (t = ringT) => 3.0 * Math.sin(t * 1.6 + 0.7 * Math.sin(t * 0.47));
+
+// ---------- physics ----------
+let world, pusherBody, wallColliders = [];
+const coins = [];   // {body, giant}
+const prizes = [];  // {body, mesh, kind, golden}
+let coinMesh, giantMesh, starMesh;
+const MAXI = 480;
+function coinCollider(r, h) { return RAPIER.ColliderDesc.cylinder(h, r).setFriction(0.42).setRestitution(0.04).setDensity(3); }
+function addCoin(x, y, z, type = 0, rot = null) {
+  const giant = type === 1;
+  const b = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y, z).setLinearDamping(0.12).setAngularDamping(0.5).setCcdEnabled(false));
+  if (rot) b.setRotation(rot, true); else b.setRotation(new THREE.Quaternion().setFromEuler(new THREE.Euler((Math.random() - 0.5) * 0.3, Math.random() * 6, (Math.random() - 0.5) * 0.3)), true);
+  world.createCollider(coinCollider(giant ? CFG.coinR * 2.1 : CFG.coinR, giant ? CFG.coinH * 2 : CFG.coinH), b);
+  const rec = { body: b, giant, star: type === 2, type, fresh: false, py: y }; coins.push(rec); return rec;
+}
+function buildPlush(kind, golden) {
+  const P = PLUSH.find(p => p.id === kind), g = new THREE.Group();
+  const mat = golden ? M.goldPlush : new THREE.MeshStandardMaterial({ color: P.col, roughness: 0.95 });
+  const mk = (r, x, y, z, m = mat, sx = 1, sy = 1, sz = 1) => { const s = new THREE.Mesh(new THREE.SphereGeometry(r, 18, 14), m); s.position.set(x, y, z); s.scale.set(sx, sy, sz); s.castShadow = true; g.add(s); return s; };
+  mk(0.5, 0, 0.5, 0, mat, 1, 0.95, 0.9);            // body
+  mk(0.4, 0, 1.08, 0.05);                            // head
+  const dark = golden ? M.dark : M.black;
+  mk(0.06, -0.14, 1.14, 0.38, dark); mk(0.06, 0.14, 1.14, 0.38, dark);   // eyes
+  const accent = golden ? M.goldPlush : new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 });
+  if (P.ear === 'round') { mk(0.14, -0.3, 1.4, 0); mk(0.14, 0.3, 1.4, 0); mk(0.12, 0, 1.0, 0.38, accent); }
+  if (P.ear === 'long') { mk(0.11, -0.15, 1.6, -0.02, mat, 0.8, 2.6, 0.6); mk(0.11, 0.15, 1.6, -0.02, mat, 0.8, 2.6, 0.6); mk(0.08, 0, 1.02, 0.38, golden ? mat : new THREE.MeshStandardMaterial({ color: 0xF59FB0 })); }
+  if (P.ear === 'eyes') { mk(0.14, -0.18, 1.4, 0.15); mk(0.14, 0.18, 1.4, 0.15); mk(0.05, -0.18, 1.45, 0.27, dark); mk(0.05, 0.18, 1.45, 0.27, dark); }
+  if (P.ear === 'beak') { mk(0.13, 0, 1.0, 0.42, golden ? mat : new THREE.MeshStandardMaterial({ color: 0xFF9A2E }), 1.3, 0.6, 1); }
+  if (P.ear === 'snout') { mk(0.13, 0, 1.0, 0.4, golden ? mat : new THREE.MeshStandardMaterial({ color: 0xE47F97 }), 1.2, 0.9, 0.7); mk(0.1, -0.28, 1.38, 0, mat, 1, 0.6, 1); mk(0.1, 0.28, 1.38, 0, mat, 1, 0.6, 1); }
+  if (P.ear === 'tri' || P.ear === 'fox') { for (const sx of [-1, 1]) { const c = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.32, 4), mat); c.position.set(sx * 0.22, 1.47, 0); c.rotation.z = -sx * 0.25; g.add(c); } if (P.ear === 'fox') mk(0.15, 0, 0.98, 0.33, accent, 1.2, 0.8, 1); }
+  if (P.ear === 'panda') { const bl = golden ? M.dark : M.black; mk(0.13, -0.28, 1.38, 0, bl); mk(0.13, 0.28, 1.38, 0, bl); mk(0.1, -0.14, 1.14, 0.33, bl); mk(0.1, 0.14, 1.14, 0.33, bl); mk(0.04, -0.14, 1.15, 0.42, M.white); mk(0.04, 0.14, 1.15, 0.42, M.white); }
+  const A = col => tint(col, golden, mat);
+  const ears2 = (col, sy = 1) => { for (const sx of [-1, 1]) { const c = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.32 * sy, 4), col); c.position.set(sx * 0.22, 1.47, 0); c.rotation.z = -sx * 0.25; g.add(c); } };
+  if (P.ear === 'owl') { for (const sx of [-1, 1]) { const c = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.3, 5), mat); c.position.set(sx * 0.24, 1.46, -0.02); c.rotation.z = -sx * 0.45; g.add(c); mk(0.14, sx * 0.15, 1.13, 0.31, A(0xF6EBD5), 1, 1, 0.5); }
+    mk(0.07, 0, 1.0, 0.4, A(0xF2A33A), 1, 1.3, 1); mk(0.32, 0, 0.52, 0.22, A(0xE9D3B0), 1, 1.1, 0.6); }
+  if (P.ear === 'mouse') { for (const sx of [-1, 1]) { mk(0.22, sx * 0.3, 1.42, -0.04, mat, 1, 1, 0.35); mk(0.14, sx * 0.3, 1.42, 0.03, A(0xF2A5B8), 1, 1, 0.3); } mk(0.05, 0, 1.03, 0.43, A(0xF07C9A)); }
+  if (P.ear === 'raccoon') { ears2(mat); mk(0.2, 0, 1.15, 0.29, A(0x2A2630), 1.55, 0.42, 0.55); mk(0.12, 0, 1.0, 0.36, A(0xF6EBD5), 1.15, 0.8, 1); mk(0.035, 0, 1.03, 0.47, M.black);
+    for (const sx of [-1, 1]) mk(0.025, sx * 0.13, 1.17, 0.44, M.white); }
+  if (P.ear === 'spiky') { mk(0.3, 0, 1.04, 0.17, A(0xF3DFC0), 1, 0.92, 0.8); mk(0.05, 0, 1.02, 0.46, M.black); const sp = A(0x5A3A22), up = new THREE.Vector3(0, 1, 0);
+    for (let i = 0; i < 22; i++) { const a = (i / 22) * Math.PI * 2 * 3.1, el = -0.2 + (i / 22) * 1.3, d = new THREE.Vector3(Math.cos(a) * Math.cos(el) * 0.9, Math.sin(el) + 0.25, -Math.abs(Math.sin(a) * Math.cos(el)) - 0.25).normalize(); const c = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.26, 5), sp);
+      const base = i < 11 ? new THREE.Vector3(0, 1.08, 0.0) : new THREE.Vector3(0, 0.55, 0); c.position.copy(base).addScaledVector(d, i < 11 ? 0.38 : 0.46); c.quaternion.setFromUnitVectors(up, d); g.add(c); } }
+  if (P.ear === 'penguin') { mk(0.36, 0, 0.5, 0.2, A(0xF6F2EA), 1, 1.05, 0.72); mk(0.27, 0, 1.04, 0.18, A(0xF6F2EA), 1.05, 0.85, 0.8); const bk = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.2, 8), A(0xF29A2E)); bk.rotation.x = Math.PI / 2; bk.position.set(0, 1.0, 0.46); g.add(bk); }
+  if (P.ear === 'mane') { const mn = new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.16, 10, 22), A(0xB8642A)); mn.position.set(0, 1.08, -0.04); g.add(mn); mk(0.12, -0.28, 1.4, 0.02); mk(0.12, 0.28, 1.4, 0.02); mk(0.14, 0, 1.0, 0.36, A(0xF6E0B0), 1.2, 0.8, 0.9); mk(0.05, 0, 1.05, 0.48, A(0x6A3A20)); }
+  if (P.ear === 'horn') { ears2(mat, 0.8); const hn = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.42, 12), golden ? mat : M.goldPlush); hn.position.set(0, 1.56, 0.16); hn.rotation.x = 0.35; g.add(hn);
+    const mc = [0xF59FC8, 0xB9A4F5, 0x8FD8F0]; for (let i = 0; i < 5; i++) mk(0.11, 0, 1.42 - i * 0.14, -0.3 - Math.sin(i / 4 * Math.PI) * 0.06, A(mc[i % 3])); mk(0.12, 0, 1.0, 0.36, A(0xF9DCEB), 1.1, 0.8, 0.9); }
+  if (P.ear === 'gills') { const gm = A(0xE5487A); for (const sx of [-1, 1]) for (let i = 0; i < 3; i++) { const gl = mk(0.06, sx * (0.4 + Math.abs(i - 1) * 0.03), 1.08 + (i - 1) * 0.15, -0.02, gm, 2.4, 0.7, 0.7); gl.rotation.z = sx * (i - 1) * 0.5; }
+    mk(0.025, -0.08, 0.98, 0.4, M.black); mk(0.025, 0.08, 0.98, 0.4, M.black); }
+  // arms + feet
+  mk(0.16, -0.48, 0.6, 0.12, mat, 1, 1.3, 1); mk(0.16, 0.48, 0.6, 0.12, mat, 1, 1.3, 1); mk(0.17, -0.22, 0.12, 0.3, mat); mk(0.17, 0.22, 0.12, 0.3, mat);
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  return g;
+}
+let thumbR = null, thumbS, thumbC; const thumbCache = {};
+function plushThumb(kind, golden) {
+  const k = kind + (golden ? '_g' : ''); if (thumbCache[k]) return thumbCache[k];
+  try {
+    if (!thumbR) { thumbR = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true }); thumbR.setPixelRatio(1); thumbR.setSize(160, 160, false); thumbR.outputColorSpace = THREE.SRGBColorSpace; thumbR.toneMapping = THREE.ACESFilmicToneMapping;
+      thumbS = new THREE.Scene(); const pm = new THREE.PMREMGenerator(thumbR); thumbS.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture; thumbS.environmentIntensity = 0.7;
+      thumbS.add(new THREE.HemisphereLight(0xFFF3DD, 0x553344, 1.1)); const d = new THREE.DirectionalLight(0xffffff, 1.8); d.position.set(2, 4, 5); thumbS.add(d);
+      thumbC = new THREE.PerspectiveCamera(30, 1, 0.1, 50); thumbC.position.set(0.9, 1.6, 4.4); thumbC.lookAt(0, 0.88, 0); }
+    const m = buildPlush(kind, golden); m.rotation.y = -0.3; thumbS.add(m); thumbR.render(thumbS, thumbC); thumbCache[k] = thumbR.domElement.toDataURL('image/png'); thumbS.remove(m);
+  } catch (e) { thumbCache[k] = ''; }
+  return thumbCache[k];
+}
+function addPrize(kind, golden, x, y, z, rot = null) {
+  const b = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y, z).setLinearDamping(0.2).setAngularDamping(0.6));
+  if (rot) b.setRotation(rot, true);
+  world.createCollider(RAPIER.ColliderDesc.ball(0.5).setTranslation(0, 0.5, 0).setFriction(0.8).setDensity(0.5), b);
+  world.createCollider(RAPIER.ColliderDesc.ball(0.4).setTranslation(0, 1.08, 0.05).setFriction(0.8).setDensity(0.5), b);
+  const mesh = buildPlush(kind, golden); mesh.scale.setScalar(0.62); scene.add(mesh);
+  prizes.push({ body: b, mesh, kind, golden });
+}
+// colliders are built for a 0.62 scaled plush -> rebuild with scaled dims
+function addPrizeScaled(kind, golden, x, y, z, rot = null) {
+  const s = 0.92, b = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y, z).setLinearDamping(0.2).setAngularDamping(0.6));
+  if (rot) b.setRotation(rot, true);
+  world.createCollider(RAPIER.ColliderDesc.ball(0.5 * s).setTranslation(0, 0.5 * s, 0).setFriction(0.8).setDensity(0.6), b);
+  world.createCollider(RAPIER.ColliderDesc.ball(0.4 * s).setTranslation(0, 1.08 * s, 0.05 * s).setFriction(0.8).setDensity(0.6), b);
+  const mesh = buildPlush(kind, golden); mesh.scale.setScalar(s); scene.add(mesh);
+  prizes.push({ body: b, mesh, kind, golden });
+}
+function randomPrize() { const pool = PLUSH.filter(p => setUnlocked(SETS[p.set - 1])); const p = pool[Math.floor(Math.random() * pool.length)]; return [p.id, Math.random() < 0.1]; }
+let pushT = 0;
+function pusherZ() { return CFG.pushBack + (CFG.pushFwd - CFG.pushBack) * (0.5 - 0.5 * Math.cos(pushT * CFG.pushSpeed)); }
+function initWorld() {
+  world = new RAPIER.World({ x: 0, y: -22, z: 0 });
+  world.timestep = 1 / 60;
+  const fixed = (hx, hy, hz, x, y, z, fr = 0.35) => world.createCollider(RAPIER.ColliderDesc.cuboid(hx, hy, hz).setTranslation(x, y, z).setFriction(fr));
+  fixed(W, 0.15, 6.2, 0, -0.15, CFG.front - 6.2);                 // floor up to the front edge
+  for (const sx of [-1, 1]) fixed(0.15, 2, (CFG.gutterFrom + 8) / 2, sx * (W + 0.15), 1.5, (CFG.gutterFrom - 8) / 2); // side walls back part
+  fixed(W, 1.1, 0.15, 0, CFG.deckY + 1.13, -5.35);                // wall over the deck
+  fixed(W, 2, 0.2, 0, 1.5, -8.3);                                 // far back stop
+  wallColliders = [-1, 1].map(sx => { const c = fixed(0.09, 0.6, (CFG.front - CFG.gutterFrom) / 2, sx * (W + 0.09), 0.4, (CFG.front + CFG.gutterFrom) / 2); c.setEnabled(false); return c; });
+  pusherBody = world.createRigidBody(RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(0, CFG.deckY / 2, pusherZ()));
+  world.createCollider(RAPIER.ColliderDesc.cuboid(W - 0.02, CFG.deckY / 2, CFG.pushHalfZ).setFriction(0.5), pusherBody);
+}
+function fillBoard() {
+  if (save.board && save.board.c && save.board.c.length > 40) {
+    for (const c of save.board.c) addCoin(c[0], c[1], c[2], +c[7] || 0, { x: c[3], y: c[4], z: c[5], w: c[6] });
+    for (const p of save.board.p || []) addPrizeScaled(p[0], p[1], p[2], p[3], p[4], { x: p[5], y: p[6], z: p[7], w: p[8] });
+    pushT = save.board.t || 0; return false;
+  }
+  // a packed tray with piles, like a machine that's been running all day
+  for (let i = 0; i < 165; i++) addCoin(-3.5 + Math.random() * 7, 0.12 + Math.floor(i / 80) * 0.18 + Math.random() * 0.12, -2.3 + Math.random() * 6.9);
+  for (let i = 0; i < 22; i++) addCoin(-3.4 + Math.random() * 6.8, 1.0, -5.0 + Math.random() * 2.2);
+  addCoin(0.6, 0.5, 2.6, 2);
+  for (let i = 0; i < 3; i++) { const [k, gld] = randomPrize(); addPrizeScaled(k, gld, -2.5 + i * 2.5, 0.8, 0.5 + Math.random() * 2); }
+  return true;
+}
+function saveBoard() {
+  if (STRESS) return;
+  const c = coins.map(({ body, type }) => { const t = body.translation(), r = body.rotation(); return [t.x, t.y, t.z, r.x, r.y, r.z, r.w, type].map(v => typeof v === 'number' ? +v.toFixed(3) : v); });
+  const p = prizes.map(({ body, kind, golden }) => { const t = body.translation(), r = body.rotation(); return [kind, golden, +t.x.toFixed(3), +t.y.toFixed(3), +t.z.toFixed(3), r.x, r.y, r.z, r.w]; });
+  save.board = { c, p, t: pushT }; persist();
+}
+
+// ---------- game ----------
+let wallT = 0, prizeCounter = 0;
+function refill() {
+  const now = Date.now();
+  if (save.coins >= CFG.refillCap) { save.lastRefill = now; return; }
+  const n = Math.floor((now - save.lastRefill) / (CFG.refillSecs * 1000));
+  if (n > 0) { save.coins = Math.min(CFG.refillCap, save.coins + n); save.lastRefill += n * CFG.refillSecs * 1000; persist(); }
+}
+const today = () => new Date().toDateString();
+function dropAt(x) {
+  if (save.coins <= 0) { openModal('out'); return false; }
+  if (coins.length > CFG.maxCoins + 60) return false;
+  save.coins--; save.dropped++; prizeCounter++; mission('drop');
+  const cx = Math.max(-W + 0.5, Math.min(W - 0.5, x));
+  const rec = addCoin(cx, CFG.dropY, CFG.dropZ + (Math.random() - 0.5) * 0.5); rec.fresh = true;
+  if (Math.random() < CFG.starChance) { const st = addCoin(Math.max(-3, Math.min(3, cx + (Math.random() - 0.5))), CFG.dropY + 0.6, CFG.dropZ, 2); st.fresh = true; toast('⭐ A lucky token fell in!'); }
+  tone(600, 420, 0.06, 'square', 0.018);
+  if (prizeCounter >= CFG.prizeEvery) { prizeCounter = 0; dropPrize(); toast('🎁 A prize dropped on the pusher!'); }
+  hud(); return true;
+}
+function dropPrize(golden = null) { const [k, g] = randomPrize(); addPrizeScaled(k, golden ?? g, (Math.random() - 0.5) * 5, 3.2, -4.6); tone(660, 990, 0.25, 'triangle', 0.05); }
+function useShake() {
+  if (save.shakes <= 0) return; save.shakes--; mission('power'); doShake(); hud(); persist();
+}
+function doShake() { shakeFx = 0.5; buzz(60);
+  for (const { body } of coins) { body.wakeUp(); body.applyImpulse({ x: (Math.random() - 0.5) * 0.08, y: 0.12 + Math.random() * 0.1, z: 0.12 + Math.random() * 0.14 }, true); }
+  for (const { body } of prizes) { body.wakeUp(); body.applyImpulse({ x: 0, y: 0.3, z: 0.4 }, true); }
+  tone(90, 60, 0.4, 'square', 0.05); }
+function wallsOn(secs) { wallT = Math.max(wallT, secs); wallColliders.forEach(c => c.setEnabled(true)); wallMeshes.forEach(m => m.visible = true); tone(300, 600, 0.3, 'sawtooth', 0.04); }
+function useWall() { if (save.walls <= 0 || wallT > 0) return; save.walls--; mission('power'); wallsOn(30); hud(); persist(); }
+function dropGiant() { addCoin((Math.random() - 0.5) * 2, 3, -1.8, 1); tone(200, 90, 0.5, 'triangle', 0.07); }
+function useGiant() { if (save.giants <= 0) return; save.giants--; mission('power'); dropGiant(); toast('Giant coin incoming!'); hud(); persist(); }
+function gainXP(n) {
+  save.xp += n;
+  while (save.xp >= xpNeed(save.level)) { save.xp -= xpNeed(save.level); save.level++; save.coins += 20; save.shakes++; if (save.level % 2 === 0) save.walls++; if (save.level % 3 === 0) save.giants++;
+    toast(`⭐ Level ${save.level}! +20 coins, +1 shake${save.level % 2 === 0 ? ', +1 wall' : ''}${save.level % 3 === 0 ? ', +1 giant coin' : ''}`); tone(523, 1046, 0.3, 'triangle', 0.07); tone(784, 1568, 0.35, 'triangle', 0.06, 0.12); buzz([30, 40, 30]);
+    const s = SETS.find(x => x.lv === save.level); if (s && s.lv > 1) toast(`🌙 New set unlocked: ${s.name}! New plushies are in the machine.`, 3.5); }
+}
+// combo: coins tumbling off in a burst
+let combo = 0, comboT = 0, comboBest = 0;
+function bumpCombo() { combo++; comboT = 1.3; mission('combo', combo);
+  if (combo === 15 || combo === 30 || combo === 50) { const b = combo === 15 ? 5 : combo === 30 ? 15 : 30; save.coins += b; toast(`${combo === 50 ? '🌋 MEGA AVALANCHE' : '💥 AVALANCHE'} ×${combo}! +${b} bonus`); tone(523, 784, 0.2, 'square', 0.05); tone(784, 1175, 0.3, 'square', 0.05, 0.1); buzz([20, 30, 20]); }
+  $('combo').textContent = '×' + combo; $('combo').classList.toggle('on', combo >= 5); $('combo').classList.toggle('hot', combo >= 15);
+  $('combo').style.animation = 'none'; void $('combo').offsetWidth; $('combo').style.animation = ''; }
+let goldT = 0, rainQ = 0, rainT = 0;
+function collectCoin(c) {
+  if (c.star) { save.won++; toast('⭐ Lucky token! Spin the wheel'); queueSpin(); buzz(40); return; }
+  let v = c.giant ? 10 : 1; if (goldT > 0) v *= 2;
+  save.coins += v; save.won += v; gainXP(v); mission('win', v); bumpCombo(); clink(c.giant ? 2 : 1, 1 + Math.min(combo, 30) * 0.025); popup('+' + v); if (c.giant) buzz(40);
+}
+function collectPrize(p) {
+  const key = p.kind + (p.golden ? '_gold' : ''); const first = !save.album[key];
+  save.album[key] = (save.album[key] || 0) + 1; gainXP(15); save.coins += 5; mission('plush');
+  const P = PLUSH.find(x => x.id === p.kind);
+  showCard(P, p.golden, first);
+  tone(784, 1175, 0.2, 'triangle', 0.07); tone(1175, 1568, 0.3, 'triangle', 0.06, 0.15); buzz([40, 50, 80]);
+  for (const S of SETS) { const done = PLUSH.filter(x => x.set === S.id).every(x => save.album[x.id] || save.album[x.id + '_gold']);
+    if (done && !save.setsDone[S.id]) { save.setsDone[S.id] = true; save.coins += S.bonus; toast(`🏆 ${S.name} set complete! +${S.bonus} coins`, 4); } }
+  persist(); hud();
+}
+function luckyHit() { ringFlash = 0.6; save.lucky = (save.lucky || 0) + 1; mission('lucky'); popup('LUCKY!', 'lucky'); tone(880, 1760, 0.15, 'square', 0.04); tone(1320, 2640, 0.2, 'triangle', 0.04, 0.08); buzz(25);
+  if (save.lucky >= CFG.luckyNeed) { save.lucky = 0; queueSpin(); }
+  hud(); persist(); }
+// ---------- lucky wheel ----------
+let wheelRot = 0, spinning = false, pendingSpins = 0, wheelOpen = false;
+const wTotal = WHEEL.reduce((a, b) => a + b.w, 0);
+function drawWheel() {
+  const cv = $('wheelCv'), x = cv.getContext('2d'), R = 290; x.clearRect(0, 0, 600, 600); x.save(); x.translate(300, 300);
+  let a0 = -Math.PI / 2;
+  for (const s of WHEEL) { const a1 = a0 + s.w / wTotal * Math.PI * 2; x.beginPath(); x.moveTo(0, 0); x.arc(0, 0, R, a0, a1); x.closePath(); x.fillStyle = s.col; x.fill(); x.lineWidth = 4; x.strokeStyle = '#5A1020'; x.stroke();
+    x.save(); x.rotate((a0 + a1) / 2); x.textAlign = 'right'; x.textBaseline = 'middle'; x.fillStyle = s.ink; x.font = `900 ${s.w < 8 ? 24 : 28}px Bungee, Impact, sans-serif`; x.fillText(s.label, R - 22, 0); x.font = '34px serif'; x.textAlign = 'center'; x.fillText(s.icon, 92, 0); x.restore(); a0 = a1; }
+  x.beginPath(); x.arc(0, 0, R, 0, Math.PI * 2); x.lineWidth = 14; x.strokeStyle = '#8A5A12'; x.stroke();
+  for (let i = 0; i < 24; i++) { const a = i / 24 * Math.PI * 2; x.beginPath(); x.arc(Math.cos(a) * R, Math.sin(a) * R, 6, 0, Math.PI * 2); x.fillStyle = i % 2 ? '#FFE38A' : '#FFF7D6'; x.fill(); }
+  x.beginPath(); x.arc(0, 0, 48, 0, Math.PI * 2); x.fillStyle = '#D8343F'; x.fill(); x.lineWidth = 8; x.strokeStyle = '#FFD25A'; x.stroke();
+  x.fillStyle = '#FFD25A'; x.font = '900 22px Bungee, Impact, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('SPIN', 0, 2); x.restore();
+}
+function queueSpin() { pendingSpins++; tone(523, 1046, 0.2, 'square', 0.04); if (!wheelOpen) setTimeout(openWheel, 500); else updateSpinBtn(); }
+function updateSpinBtn() { const b = $('spinBtn'); b.disabled = spinning; b.textContent = spinning ? 'SPINNING…' : pendingSpins > 0 ? (pendingSpins > 1 ? `SPIN! (${pendingSpins})` : 'SPIN!') : 'COLLECT'; }
+function openWheel() { wheelOpen = true; drawWheel(); $('wheelRes').textContent = 'Every slice shows its real odds.'; $('wheel').classList.remove('hidden'); updateSpinBtn(); }
+function spin() {
+  if (spinning) return; if (pendingSpins <= 0) { $('wheel').classList.add('hidden'); wheelOpen = false; return; }
+  ac(); pendingSpins--; spinning = true; updateSpinBtn(); save.spins++; mission('spin');
+  let r = Math.random() * wTotal, idx = 0; while (r >= WHEEL[idx].w) { r -= WHEEL[idx].w; idx++; }
+  let start = 0; for (let i = 0; i < idx; i++) start += WHEEL[i].w;
+  const mid = (start + WHEEL[idx].w * (0.5 + (Math.random() - 0.5) * 0.7)) / wTotal * 360;
+  const from = wheelRot; wheelRot = wheelRot - (wheelRot % 360) + 360 * 5 + (360 - mid);
+  $('wheelCv').style.transform = `rotate(${wheelRot}deg)`;
+  const S = Math.floor((wheelRot - from) / 22);
+  for (let k = 1; k < S; k++) setTimeout(() => tone(1400, 1100, 0.03, 'square', 0.025), 3600 * (1 - Math.pow(1 - k / S, 1 / 3)));
+  setTimeout(() => { spinning = false; reward(WHEEL[idx]); updateSpinBtn(); }, 3750);
+}
+function reward(s) {
+  const say = t => { $('wheelRes').textContent = t; toast(t); };
+  if (s.id === 'rain15') { rainQ += 15; say('🪙 Coin shower! 15 coins rain down'); }
+  if (s.id === 'rain25') { rainQ += 25; say('💰 Big coin shower! 25 coins'); }
+  if (s.id === 'plush') { dropPrize(); say('🧸 A plushie drops on the pusher'); }
+  if (s.id === 'shake') { save.shakes += 2; say('〰️ +2 shakes'); }
+  if (s.id === 'giant') { dropGiant(); say('🟡 Giant coin incoming'); }
+  if (s.id === 'hour') { goldT = Math.max(goldT, 0) + 20; say('⏱️ Double time! Every coin counts ×2 for 20 s'); }
+  if (s.id === 'walls') { wallsOn(25); say('🧱 Free walls for 25 s'); }
+  if (s.id === 'jackpot') { rainQ += 50; dropPrize(true); jackFx = 3; say('🎰 JACKPOT! 50 coins + a golden plushie'); buzz([60, 40, 60, 40, 120]); for (let i = 0; i < 6; i++) tone(523 * Math.pow(1.26, i % 4), 1046, 0.25, 'square', 0.05, i * 0.12); }
+  else { tone(784, 1568, 0.3, 'triangle', 0.07); buzz(50); }
+  persist(); hud();
+}
+let jackFx = 0;
+// ---------- daily missions ----------
+function seeded(str) { let h = 2166136261; for (const ch of str) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return () => { h = Math.imul(h ^ (h >>> 15), 2246822507); h = Math.imul(h ^ (h >>> 13), 3266489909); return ((h ^= h >>> 16) >>> 0) / 4294967296; }; }
+function ensureMissions() {
+  if (save.missions && save.missions.day === today()) return;
+  const rnd = seeded(today()), pool = MPOOL.slice(), list = [];
+  while (list.length < 3) { const m = pool.splice(Math.floor(rnd() * pool.length), 1)[0]; list.push({ id: m.id, goal: m.g[Math.floor(rnd() * m.g.length)], prog: 0, claimed: false }); }
+  save.missions = { day: today(), list, bonus: false }; persist();
+}
+function mission(id, n = 1) { ensureMissions(); for (const m of save.missions.list) if (m.id === id && !m.claimed) { const def = MPOOL.find(x => x.id === id); const was = m.prog >= m.goal; m.prog = def.max ? Math.max(m.prog, n) : m.prog + n; if (!was && m.prog >= m.goal) { toast('✅ Daily task done! Claim it in 📋'); tone(660, 1320, 0.2, 'triangle', 0.05); } } }
+const rwText = rw => Object.entries(rw).map(([k, v]) => k === 'coins' ? `+${v} coins` : `+${v} ${k === 'shakes' ? 'shake' : k === 'walls' ? 'wall' : 'giant coin'}`).join(', ');
+function claimMission(i) {
+  const m = save.missions.list[i]; if (!m || m.claimed || m.prog < m.goal) return; m.claimed = true;
+  const rw = MPOOL.find(x => x.id === m.id).rw; for (const [k, v] of Object.entries(rw)) save[k] += v;
+  tone(784, 1568, 0.3, 'triangle', 0.07); buzz(30);
+  if (save.missions.list.every(x => x.claimed) && !save.missions.bonus) {
+    save.missions.bonus = true; const y = new Date(Date.now() - 864e5).toDateString();
+    save.streak = save.streakDay === y ? save.streak + 1 : 1; save.streakDay = today();
+    const b = 20 + 10 * Math.min(save.streak, 7); save.coins += b; toast(`🔥 All 3 done! Day ${save.streak} streak: +${b} coins`, 3.5);
+  }
+  persist(); hud(); openModal('missions');
+}
+// ---------- ui ----------
+let toastQ = [], toastT = 0;
+function toast(t, secs = 2.4) { toastQ.push([t, secs]); }
+function popup(t, cls = '') { const el = document.createElement('div'); el.className = 'pop ' + cls; el.textContent = t; el.style.left = (40 + Math.random() * 20) + '%'; $('pops').appendChild(el); setTimeout(() => el.remove(), 900); }
+let cardT = 0;
+function showCard(P, golden, first) {
+  const c = $('card'); $('cardImg').src = plushThumb(P.id, golden); $('cardTag').textContent = first ? (golden ? 'NEW · GOLDEN!' : 'NEW!') : (golden ? 'GOLDEN' : 'DUPLICATE');
+  $('cardTag').className = first ? 'new' : ''; $('cardName').textContent = P.name;
+  const key = P.id + (golden ? '_gold' : ''); const S = SETS[P.set - 1]; const have = PLUSH.filter(x => x.set === S.id && (save.album[x.id] || save.album[x.id + '_gold'])).length;
+  $('cardSub').textContent = `${S.name} · ${have}/8${save.album[key] > 1 ? ' · ×' + save.album[key] : ''}`;
+  c.classList.toggle('gold', !!golden); c.classList.remove('hidden', 'fly'); void c.offsetWidth; c.classList.add('in');
+  clearTimeout(cardT); cardT = setTimeout(() => { c.classList.add('fly'); setTimeout(() => { c.classList.add('hidden'); c.classList.remove('in', 'fly'); $('bAlbum').classList.add('bump'); setTimeout(() => $('bAlbum').classList.remove('bump'), 500); }, 520); }, 2300);
+}
+function fmt(s) { return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+function hud() {
+  $('coins').textContent = save.coins;
+  const left = CFG.refillSecs - Math.floor((Date.now() - save.lastRefill) / 1000) % CFG.refillSecs;
+  $('refill').textContent = save.coins >= CFG.refillCap ? 'free refill: max' : `+1 free in ${fmt(Math.max(0, left))}`;
+  $('lvl').textContent = save.level; $('xpfill').style.width = Math.min(100, save.xp / xpNeed(save.level) * 100) + '%';
+  $('shakeN').textContent = save.shakes; $('wallN').textContent = wallT > 0 ? Math.ceil(wallT) + 's' : save.walls; $('giantN').textContent = save.giants;
+  $('bShake').disabled = save.shakes <= 0; $('bWall').disabled = save.walls <= 0 && wallT <= 0; $('bGiant').disabled = save.giants <= 0;
+  const open = PLUSH.filter(p => setUnlocked(SETS[p.set - 1])), owned = open.filter(p => save.album[p.id] || save.album[p.id + '_gold']).length; $('albumN').textContent = owned + '/' + open.length;
+  $('dailyDot').classList.toggle('hidden', save.daily === today());
+  ensureMissions(); $('missDot').classList.toggle('hidden', !save.missions.list.some(m => !m.claimed && m.prog >= m.goal));
+  $('missN').textContent = save.missions.list.filter(m => m.claimed).length + '/3';
+  document.querySelectorAll('#luckyL i').forEach((el, i) => el.classList.toggle('on', i < save.lucky));
+  lamps.forEach((l, i) => l.material = i < save.lucky ? lampOn : lampOff);
+  $('hour').classList.toggle('hidden', goldT <= 0); $('hourT').textContent = Math.ceil(goldT) + 's';
+}
+let albumSet = 1;
+function openModal(id) {
+  for (const m of ['album', 'shop', 'out', 'missions']) $(m).classList.toggle('hidden', m !== id);
+  if (id === 'album') {
+    const S = SETS[albumSet - 1], open = setUnlocked(S), list = PLUSH.filter(p => p.set === S.id);
+    $('albumTabs').innerHTML = SETS.map(x => `<button data-set="${x.id}" class="${x.id === albumSet ? 'on' : ''}">${x.name}${setUnlocked(x) ? '' : ' 🔒'}</button>`).join('');
+    $('albumTabs').querySelectorAll('button').forEach(b => b.onclick = () => { albumSet = +b.dataset.set; openModal('album'); });
+    const have = list.filter(p => save.album[p.id] || save.album[p.id + '_gold']).length;
+    $('albumLine').textContent = open ? `${have}/8 collected · complete the set for +${S.bonus} coins${save.setsDone[S.id] ? ' ✓' : ''}. Golden ones are rare (10%).` : `Unlocks at level ${S.lv}. Keep pushing!`;
+    $('albumGrid').innerHTML = list.map(p => { const n = save.album[p.id] || 0, g = save.album[p.id + '_gold'] || 0, got = n || g;
+      return `<div class="slot ${got ? 'have' : ''} ${g ? 'gold' : ''}"><img src="${plushThumb(p.id, !!g && !n)}" class="${got ? '' : 'sil'}" alt=""><b>${got ? p.name : '???'}</b><small>${n ? '×' + n : ''}${g ? ' ✨' + g : ''}${got ? '' : '&nbsp;'}</small></div>`; }).join('');
+    $('albumGrid').classList.toggle('locked', !open);
+  }
+  if (id === 'shop') {
+    $('dailyBtn').disabled = save.daily === today(); $('dailyBtn').textContent = save.daily === today() ? 'Daily bonus claimed ✓' : `Claim daily bonus · +${CFG.dailyBonus}`;
+  }
+  if (id === 'missions') {
+    ensureMissions();
+    $('missList').innerHTML = save.missions.list.map((m, i) => { const d = MPOOL.find(x => x.id === m.id), p = Math.min(m.prog, m.goal), done = m.prog >= m.goal;
+      return `<div class="mis ${m.claimed ? 'claimed' : done ? 'done' : ''}"><div><b>${d.t(m.goal)}</b><div class="bar"><i style="width:${p / m.goal * 100}%"></i></div><small>${p}/${m.goal} · ${rwText(d.rw)}</small></div><button data-claim="${i}" ${done && !m.claimed ? '' : 'disabled'}>${m.claimed ? '✓' : 'CLAIM'}</button></div>`; }).join('');
+    $('missList').querySelectorAll('[data-claim]').forEach(b => b.onclick = () => claimMission(+b.dataset.claim));
+    const n = save.streakDay === today() ? save.streak : (save.streakDay === new Date(Date.now() - 864e5).toDateString() ? save.streak : 0);
+    $('streakLine').textContent = `🔥 Streak: ${n} day${n === 1 ? '' : 's'} · finish all 3 for +${20 + 10 * Math.min(n + (save.missions.bonus ? 0 : 1), 7)} coins. New tasks at midnight.`;
+  }
+  if (id === 'out') { const left = CFG.refillSecs - Math.floor((Date.now() - save.lastRefill) / 1000) % CFG.refillSecs; $('outLine').textContent = `Next free coin in ${fmt(left)}. Free coins refill up to ${CFG.refillCap}.`; }
+}
+document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => b.closest('.modal').classList.add('hidden')));
+$('bAlbum').addEventListener('click', () => openModal('album'));
+$('bShop').addEventListener('click', () => openModal('shop'));
+$('bMiss').addEventListener('click', () => openModal('missions'));
+$('spinBtn').addEventListener('click', spin);
+$('outShop').addEventListener('click', () => openModal('shop'));
+$('dailyBtn').addEventListener('click', () => { if (save.daily === today()) return; save.daily = today(); save.coins += CFG.dailyBonus; persist(); hud(); openModal('shop'); toast(`+${CFG.dailyBonus} daily coins`); tone(660, 1320, 0.3, 'triangle', 0.07); });
+document.querySelectorAll('[data-pack]').forEach(b => b.addEventListener('click', () => { const n = +b.dataset.pack; save.coins += n; persist(); hud(); toast(`TEST purchase: +${n} coins (no payment)`); tone(523, 1046, 0.3, 'triangle', 0.07); }));
+$('bShake').addEventListener('click', useShake); $('bWall').addEventListener('click', useWall); $('bGiant').addEventListener('click', useGiant);
+$('bSound').addEventListener('click', () => { save.sound = !save.sound; $('bSound').textContent = save.sound ? '🔊' : '🔈'; persist(); });
+// drop input: tap / hold to keep dropping
+const ray = new THREE.Raycaster(), plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -1.5), hit = new THREE.Vector3();
+let holding = false, holdX = 0, nextHold = 0, aimX = 0;
+function pickX(e) { const r = renderer.domElement.getBoundingClientRect(); ray.setFromCamera({ x: (e.clientX - r.left) / r.width * 2 - 1, y: -(e.clientY - r.top) / r.height * 2 + 1 }, camera); ray.ray.intersectPlane(plane, hit); return hit.x; }
+renderer.domElement.addEventListener('pointerdown', e => { ac(); musicOn = true; if (AC.state === 'suspended') AC.resume(); holding = true; holdX = aimX = pickX(e); dropAt(holdX); nextHold = performance.now() + 380; });
+renderer.domElement.addEventListener('pointermove', e => { aimX = pickX(e); if (holding) holdX = aimX; });
+window.addEventListener('pointerup', () => { holding = false; });
+// aim marker (a ghost coin riding above the pusher)
+const ghost = new THREE.Mesh(new THREE.CylinderGeometry(CFG.coinR, CFG.coinR, CFG.coinH * 2, 24), new THREE.MeshBasicMaterial({ color: 0xFFE38A, transparent: true, opacity: 0.45 })); scene.add(ghost);
+
+// ---------- loop ----------
+let last = performance.now(), acc = 0, shakeFx = 0, saveT = 0, hudT = 0, bulbT = 0;
+const dummy = new THREE.Object3D();
+let simSteps = 0;
+function frame(now) {
+  const tA = performance.now();
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  acc += dt; let steps = 0;
+  while (acc >= 1 / 60 && steps < 2) {
+    pushT += 1 / 60; ringT += 1 / 60; pusherBody.setNextKinematicTranslation({ x: 0, y: CFG.deckY / 2, z: pusherZ() });
+    world.step(); acc -= 1 / 60; steps++; simSteps++;
+    for (const c of coins) if (c.fresh) { const t = c.body.translation();
+      if (c.py > CFG.ringY && t.y <= CFG.ringY && Math.abs(t.x - ringX()) < CFG.ringTol && Math.abs(t.z - CFG.dropZ) < 0.7) { luckyHit(); if (c.star) c.fresh = false; }
+      if (t.y < 1.05) { c.fresh = false; clatter(); } c.py = t.y; }
+    // collect / lose
+    for (let i = coins.length - 1; i >= 0; i--) { const t = coins[i].body.translation(); if (t.y < -0.6) { const won = t.z > CFG.front - 0.2 && Math.abs(t.x) < W + 0.05; if (won) collectCoin(coins[i]); else { tone(240, 140, 0.12, 'sine', 0.02); if (coins[i].star) toast('Lucky token slipped into the gutter…'); } world.removeRigidBody(coins[i].body); coins.splice(i, 1); } }
+    for (let i = prizes.length - 1; i >= 0; i--) { const t = prizes[i].body.translation(); if (t.y < -0.6) { if (t.z > CFG.front - 0.3) collectPrize(prizes[i]); else toast('A prize slipped into the gutter…'); world.removeRigidBody(prizes[i].body); scene.remove(prizes[i].mesh); prizes.splice(i, 1); } }
+  }
+  if (acc > 0.1) acc = 0;
+  const tB = performance.now();
+  if (rainQ > 0) { rainT -= dt; while (rainT <= 0 && rainQ > 0) { rainT += 0.055; rainQ--; if (coins.length < CFG.rainCap) { const r = addCoin(-3.3 + Math.random() * 6.6, 3.6 + Math.random() * 0.6, -4.6 + Math.random() * 7.2); r.py = 9; if (Math.random() < 0.3) clatter(); } else { save.coins++; popup('+1'); } } }
+  if (comboT > 0) { comboT -= dt; if (comboT <= 0) { combo = 0; $('combo').classList.remove('on', 'hot'); } }
+  if (goldT > 0) goldT -= dt;
+  if (holding && now > nextHold) { dropAt(holdX); nextHold = now + 260; }
+  if (wallT > 0) { wallT -= dt; if (wallT <= 0) { wallColliders.forEach(c => c.setEnabled(false)); wallMeshes.forEach(m => m.visible = false); } }
+  // sync visuals
+  pusherMesh.position.z = pusherZ();
+  let ni = 0, gi = 0, si = 0;
+  for (const c of coins) { const t = c.body.translation(), r = c.body.rotation(); dummy.position.set(t.x, t.y, t.z); dummy.quaternion.set(r.x, r.y, r.z, r.w); dummy.updateMatrix(); if (c.giant) giantMesh.setMatrixAt(gi++, dummy.matrix); else if (c.star) { if (si < 30) starMesh.setMatrixAt(si++, dummy.matrix); } else if (ni < MAXI) coinMesh.setMatrixAt(ni++, dummy.matrix); }
+  coinMesh.count = ni; coinMesh.instanceMatrix.needsUpdate = true; giantMesh.count = gi; giantMesh.instanceMatrix.needsUpdate = true; starMesh.count = si; starMesh.instanceMatrix.needsUpdate = true;
+  ring.position.set(ringX(), CFG.ringY, CFG.dropZ); ring.rotation.z += dt * 2;
+  if (ringFlash > 0) { ringFlash -= dt; ring.scale.setScalar(1 + ringFlash * 0.6); ringMat.emissiveIntensity = 0.6 + ringFlash * 4; } else { ring.scale.setScalar(1); ringMat.emissiveIntensity = 0.6; }
+  ringBulbs.forEach((b, i) => b.material = (i + Math.floor(now / 120)) % 2 ? M.bulbOn : M.bulbOff);
+  for (const p of prizes) { const t = p.body.translation(), r = p.body.rotation(); p.mesh.position.set(t.x, t.y, t.z); p.mesh.quaternion.set(r.x, r.y, r.z, r.w); }
+  ghost.position.set(Math.max(-W + 0.5, Math.min(W - 0.5, aimX)), CFG.dropY, CFG.dropZ); ghost.visible = save.coins > 0;
+  bulbT += dt; const party = goldT > 0 || jackFx > 0; if (jackFx > 0) jackFx -= dt;
+  if (bulbT > (party ? 0.08 : 0.18)) { bulbT = 0; const k = Math.floor(now / (party ? 80 : 180)); bulbs.forEach((b, i) => { if (i < 36) b.material = party ? ((i + k) % 2 ? M.bulbOn : M.bulbOff) : (i + k) % 3 === 0 ? M.bulbOff : M.bulbOn; }); }
+  chuteGlow.material.color.setHex(goldT > 0 ? 0xFFE38A : 0xFFC54D);
+  wheel.rotation.z += dt * 0.08; chuteGlow.material.opacity = 0.25 + Math.sin(now / 300) * 0.1;
+  if (shakeFx > 0 || jackFx > 2) { shakeFx = Math.max(0, shakeFx - dt); const k = Math.max(shakeFx, jackFx > 2 ? 0.15 : 0); camera.position.x = Math.sin(now / 20) * k * 0.4; } else camera.position.x = 0;
+  // toasts
+  if (toastT > 0) { toastT -= dt; if (toastT <= 0) $('toast').classList.remove('on'); }
+  else if (toastQ.length) { const [t, s] = toastQ.shift(); $('toast').textContent = t; $('toast').classList.add('on'); toastT = s; }
+  hudT += dt; if (hudT > 0.5) { hudT = 0; refill(); hud(); }
+  saveT += dt; if (saveT > 6) { saveT = 0; saveBoard(); }
+  music();
+  const tC = performance.now();
+  renderer.render(scene, camera);
+  if (perfHook) perfHook(now, dt, tB - tA, performance.now() - tC, steps);
+  requestAnimationFrame(frame);
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden) saveBoard(); });
+window.addEventListener('pagehide', saveBoard);
+
+// ---------- boot ----------
+(async () => {
+  await RAPIER.init();
+  initWorld();
+  coinMesh = new THREE.InstancedMesh(new THREE.CylinderGeometry(CFG.coinR, CFG.coinR, CFG.coinH * 2, 28), [M.gold, M.goldFace, M.goldFace], MAXI); coinMesh.castShadow = true; coinMesh.receiveShadow = true; coinMesh.frustumCulled = false; scene.add(coinMesh);
+  giantMesh = new THREE.InstancedMesh(new THREE.CylinderGeometry(CFG.coinR * 2.1, CFG.coinR * 2.1, CFG.coinH * 4, 36), [M.gold, M.goldFace, M.goldFace], 20); giantMesh.castShadow = true; giantMesh.frustumCulled = false; scene.add(giantMesh);
+  starMesh = new THREE.InstancedMesh(new THREE.CylinderGeometry(CFG.coinR * 1.05, CFG.coinR * 1.05, CFG.coinH * 2.4, 28), [M.starSide, M.starFace, M.starFace], 30); starMesh.castShadow = true; starMesh.frustumCulled = false; scene.add(starMesh);
+  const fresh = fillBoard();
+  if (fresh) { for (let i = 0; i < 420; i++) { pushT += 1 / 60; pusherBody.setNextKinematicTranslation({ x: 0, y: CFG.deckY / 2, z: pusherZ() }); world.step(); }
+    for (let i = coins.length - 1; i >= 0; i--) if (coins[i].body.translation().y < -0.5) { world.removeRigidBody(coins[i].body); coins.splice(i, 1); } }
+  ensureMissions(); refill(); resize(); hud(); $('bSound').textContent = save.sound ? '🔊' : '🔈';
+  $('loading').classList.add('hidden');
+  if (!save.seenIntro) { toast('Tap or hold to drop coins. Win the plushies!', 3.5); save.seenIntro = true; persist(); }
+  if (!save.seenRing) { toast('🎯 Drop a coin through the moving ring: 3 hits = a wheel spin', 4); save.seenRing = true; persist(); }
+  requestAnimationFrame(frame);
+  window.__k.ready = true;
+  if (STRESS) import('./stress.js');
+})();
+let perfHook = null;
+function setQuality({ dpr, shadows }) { if (dpr) { renderer.setPixelRatio(dpr); resize(); } if (shadows !== undefined) { key.castShadow = shadows; renderer.shadowMap.needsUpdate = true; } }
+function addLooseCoin() { return addCoin(-3.3 + Math.random() * 6.6, 3.2 + Math.random() * 0.8, -2.2 + Math.random() * 6); }
+function trimTo(n) { while (coins.length > n) { const i = Math.floor(Math.random() * coins.length); world.removeRigidBody(coins[i].body); coins.splice(i, 1); } }
+window.__k = { STRESS, renderer, setQuality, addLooseCoin, trimTo, burst() { rainQ += 50; doShake(); }, set perfHook(f) { perfHook = f; }, get simSteps() { return simSteps; }, ready: false, save, coins, prizes, dropAt, useShake, useWall, useGiant, openModal, CFG, queueSpin, spin, luckyHit, showCard, PLUSH, reward, WHEEL, mission, ringX, get combo() { return combo; }, get rainQ() { return rainQ; }, set goldT(v) { goldT = v; }, bumpCombo, get world() { return world; } };
