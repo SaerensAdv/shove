@@ -1,7 +1,7 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <link rel="manifest" href="./manifest.json"><meta name="theme-color" content="#1A0F14"><link rel="icon" href="./icons/icon-192.png"><link rel="apple-touch-icon" href="./icons/icon-180.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="SHOVE">
-<title>SHOVE · Carnival coin pusher · prototype v0.7</title>
+<title>SHOVE · Carnival coin pusher · prototype v0.8</title>
 <link href="https://fonts.googleapis.com/css2?family=Bungee&family=DM+Sans:wght@500;700;800&display=swap" rel="stylesheet">
 <style>
 :root{--red:#D8343F;--gold:#FFD25A;--cream:#F6EBD5;--ink:#1A0F14;--sky:#1B0F2E}
@@ -112,6 +112,11 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--sky);font-family
 #installBtn{background:#F6EBD5}
 .od{display:flex;gap:10px;align-items:center;padding:8px 2px;border-bottom:1px solid #3A2430}.od span{font-size:20px;width:26px;text-align:center}.od b{flex:1;font-size:15px}.od em{font-style:normal;font-family:Bungee,Impact,sans-serif;color:var(--gold)}
 .linkrow{display:flex;gap:14px;justify-content:center;margin-top:12px}.linkrow a,.linkrow button{color:var(--cream);opacity:.75;font:700 14px "DM Sans",system-ui,sans-serif;background:none;border:none;text-decoration:underline;cursor:pointer;padding:4px}
+#sg{position:fixed;inset:0;z-index:7;background:#1B0F2E;touch-action:none}#sgCv{position:absolute;inset:0;width:100%;height:100%}
+#sg .sg-top{position:absolute;left:0;right:0;top:0;padding:max(10px,env(safe-area-inset-top)) 12px 0;display:flex;gap:10px;align-items:center}#sg .sg-top b{font-family:Bungee,Impact,sans-serif;font-weight:400;font-size:20px;color:var(--gold);text-shadow:0 2px 0 #8A2A12}#sg .sg-top span{flex:1;font-size:13px;font-weight:700;opacity:.75}
+#sg .x{position:static;font-size:26px;background:rgba(26,15,20,.8);border:2px solid #8A5A12;border-radius:12px;width:44px;height:44px}
+#sgEnd{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(14,8,18,.7)}#sgEnd .panel{text-align:center;border-color:var(--gold)}
+.fg{display:flex;gap:12px;align-items:center;width:100%;text-align:left;background:linear-gradient(135deg,#3A1420,#1A0F14);border:2px solid #8A5A12;border-radius:16px;padding:12px;margin-top:10px;color:var(--cream);cursor:pointer;font-family:inherit}.fg span{font-size:30px}.fg div{flex:1}.fg b{display:block;font-family:Bungee,Impact,sans-serif;font-weight:400;font-size:17px}.fg small{font-size:13px;opacity:.75}.fg em{font-style:normal;font-family:Bungee,Impact,sans-serif;color:var(--gold);white-space:nowrap}.fg.locked{opacity:.5;border-color:#3A2430}
 #wheelOdds{background:none;border:none;color:var(--cream);opacity:.75;font:700 14px "DM Sans",system-ui,sans-serif;text-decoration:underline;margin-top:10px;cursor:pointer}
 #shelf{position:fixed;inset:0;z-index:6;background:#1B0F2E}#shelfCv{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
 #shelf .sh-top{position:absolute;left:0;right:0;top:0;padding:max(10px,env(safe-area-inset-top)) 12px 0;display:flex;gap:8px;align-items:center}
@@ -132,6 +137,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--sky);font-family
 </div>
 <div class="side">
   <button class="ibtn" id="bBooth" title="Booths">🎪<span class="dot hidden" id="boothDot"></span></button>
+  <button class="ibtn" id="bFair" title="Fair games">🎡</button>
   <button class="ibtn" id="bShelf" title="Prize shelf">🏆</button>
   <button class="ibtn" id="bAlbum" title="Collection">🧸<small id="albumN">0/8</small></button>
   <button class="ibtn" id="bMiss" title="Daily tasks">📋<small id="missN">0/3</small><span class="dot hidden" id="missDot"></span></button>
@@ -167,6 +173,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--sky);font-family
   <button class="btn" id="tutReplay">Replay the tutorial</button>
   <div class="linkrow"><button id="oddsBtn">Odds &amp; fair play</button><a href="./privacy.html" target="_blank" rel="noopener">Privacy</a></div>
   <div class="note" id="verLine"></div></div></div>
+<div class="modal hidden" id="fair"><div class="panel"><button class="x" data-close>×</button><h2>THE FAIR</h2><p>Skill games, no luck involved. Each play costs coins; how well you play decides the prize.</p><div id="fairList"></div></div></div>
 <div class="modal hidden" id="odds"><div class="panel"><button class="x" data-close>×</button><h2>THE ODDS</h2><p>Every chance in SHOVE, out in the open. Spins are only earned by playing, never sold.</p><div class="sub">LUCKY WHEEL</div><div id="oddsList"></div><div class="sub">ON THE MACHINE</div><div id="oddsMore"></div><div class="fair"><b>Fair play:</b> coins can't be bought or cashed out, and nothing in SHOVE has real-world value.</div><button class="btn hidden" id="oddsBack">BACK TO THE WHEEL</button></div></div>
 <div class="modal hidden" id="backup"><div class="panel"><button class="x" data-close>×</button><h2 id="bkTitle">BACKUP</h2><p id="bkInfo"></p><textarea id="bkText" spellcheck="false" autocomplete="off"></textarea><div id="bkMsg"></div><button class="btn" id="bkAct">COPY</button></div></div>
 <div class="modal hidden" id="away"><div class="panel"><h2>WELCOME BACK</h2><p id="awayLine"></p><div id="awayList"></div><button class="btn" id="awayGo">BACK TO THE MACHINE</button></div></div>

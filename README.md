@@ -1,4 +1,4 @@
-# SHOVE · carnival coin pusher (prototype v0.6)
+# SHOVE · carnival coin pusher (prototype v0.8)
 
 Free-to-play carnival coin pusher in real 3D: Three.js for rendering, Rapier (WASM) for physics. Plushie collections, lucky ring, lucky wheel with honest odds, daily tasks. Saerens game lab, not released.
 
@@ -25,6 +25,15 @@ Per phase it records fps, frame-time p50/p95/p99, jank (% frames over 34 ms), ph
 ## Hosting
 
 Settings → Pages → Deploy from branch → `play` / root. Until Pages is on, the test URL is `https://raw.githack.com/SaerensAdv/shove/play/stress.html`.
+
+## v0.8: the fair + balance
+
+- **The fair** (🎡 button): three skill games, no luck involved. Each play costs coins, so they work as coin sinks.
+  - High Striker (5 coins, LV1): stop the needle on the gold line. Bell = +15 coins and XP.
+  - Shooting Gallery (10 coins, LV2): 20 s, 15 shots, golden ducks worth 50. 300+ = +20 coins and a power-up.
+  - The Claw (15 coins, LV3): one drop, centred wins a plushie (prefers ones you're missing).
+- **Balance**: start 80 coins, refill 1 per 40 s up to 50, daily bonus 50, lucky token 1 in 150, narrower lucky ring, smaller wheel prizes (10/18/jackpot 35), level-up +10, plushies give no coins. Measured net return dropped from about 126 to about 95 per 100 coins played.
+- New daily task: play fair games.
 
 ## v0.6: app-ready
 
