@@ -1,6 +1,7 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>SHOVE · Carnival coin pusher · prototype v0.5</title>
+<link rel="manifest" href="./manifest.json"><meta name="theme-color" content="#1A0F14"><link rel="icon" href="./icons/icon-192.png"><link rel="apple-touch-icon" href="./icons/icon-180.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="SHOVE">
+<title>SHOVE · Carnival coin pusher · prototype v0.6</title>
 <link href="https://fonts.googleapis.com/css2?family=Bungee&family=DM+Sans:wght@500;700;800&display=swap" rel="stylesheet">
 <style>
 :root{--red:#D8343F;--gold:#FFD25A;--cream:#F6EBD5;--ink:#1A0F14;--sky:#1B0F2E}
@@ -103,6 +104,12 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--sky);font-family
 .setrow{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #3A2430;font-weight:800;font-size:15px}
 .tg,.seg button{font:800 13px "DM Sans",system-ui,sans-serif;background:#1A0F14;color:var(--cream);border:2px solid #3A2430;border-radius:10px;padding:7px 12px;cursor:pointer}.tg.on,.seg button.on{background:var(--gold);color:var(--ink);border-color:var(--gold)}
 .seg{display:flex;gap:6px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.row2 .pack{justify-content:center;font-size:14px;padding:10px 6px}
+#bkText{width:100%;height:96px;margin-top:10px;background:#1A0F14;color:var(--cream);border:2px solid #3A2430;border-radius:12px;padding:10px;font:600 14px ui-monospace,Menlo,monospace;word-break:break-all;resize:none}
+#backup h2{font-size:21px;padding-right:30px}#bkMsg{min-height:20px;font-size:14px;font-weight:800;color:var(--gold);margin-top:8px}
+#away .panel{text-align:center;border-color:var(--gold)}#awayLine{opacity:.8}
+.aw{display:flex;gap:12px;align-items:center;text-align:left;background:#1A0F14;border:2px solid #3A2430;border-radius:14px;padding:10px 12px;margin-top:8px}.aw span{font-size:26px}.aw b{display:block;font-size:16px}.aw small{opacity:.65;font-size:13px}
+#installBtn{background:#F6EBD5}
 #shelf{position:fixed;inset:0;z-index:6;background:#1B0F2E}#shelfCv{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
 #shelf .sh-top{position:absolute;left:0;right:0;top:0;padding:max(10px,env(safe-area-inset-top)) 12px 0;display:flex;gap:8px;align-items:center}
 #shelf .tabs{flex:1;margin:0}#shelf .x{position:static;font-size:28px;background:rgba(26,15,20,.8);border:2px solid #8A5A12;border-radius:12px;width:44px;height:44px}
@@ -150,8 +157,14 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--sky);font-family
   <div class="setrow">Music<button class="tg" data-set-k="music">ON</button></div>
   <div class="setrow">Vibration<button class="tg" data-set-k="haptics">ON</button></div>
   <div class="setrow">Graphics<div class="seg"><button data-q="auto">Auto</button><button data-q="high">High</button><button data-q="low">Low</button></div></div>
+  <div class="setrow hidden" id="remRow">Daily reminder · 19:00<button class="tg" id="remBtn">OFF</button></div>
+  <div class="sub">YOUR PROGRESS</div>
+  <div class="row2"><button class="pack" id="bkCopy">💾 Backup code</button><button class="pack" id="bkLoad">↩︎ Restore</button></div>
+  <button class="btn" id="installBtn">📲 Put SHOVE on your home screen</button>
   <button class="btn" id="tutReplay">Replay the tutorial</button>
-  <div class="note">Auto lowers resolution and shadows when your phone can't keep up.</div></div></div>
+  <div class="note" id="verLine"></div></div></div>
+<div class="modal hidden" id="backup"><div class="panel"><button class="x" data-close>×</button><h2 id="bkTitle">BACKUP</h2><p id="bkInfo"></p><textarea id="bkText" spellcheck="false" autocomplete="off"></textarea><div id="bkMsg"></div><button class="btn" id="bkAct">COPY</button></div></div>
+<div class="modal hidden" id="away"><div class="panel"><h2>WELCOME BACK</h2><p id="awayLine"></p><div id="awayList"></div><button class="btn" id="awayGo">BACK TO THE MACHINE</button></div></div>
 <div id="shelf" class="hidden"><canvas id="shelfCv"></canvas><div class="sh-top"><div class="tabs" id="shelfTabs"></div><button class="x" id="shelfClose">×</button></div><div id="shelfInfo"></div></div>
 <div id="adOv" class="hidden"><div><small>AD · PROTOTYPE PLACEHOLDER</small><b id="adT">5</b><small>Your coins are on their way</small></div></div>
 <div class="modal hidden" id="missions"><div class="panel"><button class="x" data-close>×</button><h2>DAILY TASKS</h2><p>Three new tasks every day. Finish all three to grow your streak.</p><div id="missList"></div><div class="note" id="streakLine"></div></div></div>
