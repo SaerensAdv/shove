@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024"><defs><filter id="bl" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="14"/></filter>
+<radialGradient id="vg" cx="50%" cy="50%" r="72%"><stop offset="38%" stop-color="#1A0F14" stop-opacity="0"/><stop offset="100%" stop-color="#1A0F14" stop-opacity=".85"/></radialGradient></defs>
+<rect width="1024" height="1024" fill="#F6EBD5"/>
+<path d="M512,512 L512.0,-1488.0 L1130.0,-1390.1Z" fill="#D8343F"/>
+<path d="M512,512 L1687.6,-1106.0 L2130.0,-663.6Z" fill="#D8343F"/>
+<path d="M512,512 L2414.1,-106.0 L2512.0,512.0Z" fill="#D8343F"/>
+<path d="M512,512 L2414.1,1130.0 L2130.0,1687.6Z" fill="#D8343F"/>
+<path d="M512,512 L1687.6,2130.0 L1130.0,2414.1Z" fill="#D8343F"/>
+<path d="M512,512 L512.0,2512.0 L-106.0,2414.1Z" fill="#D8343F"/>
+<path d="M512,512 L-663.6,2130.0 L-1106.0,1687.6Z" fill="#D8343F"/>
+<path d="M512,512 L-1390.1,1130.0 L-1488.0,512.0Z" fill="#D8343F"/>
+<path d="M512,512 L-1390.1,-106.0 L-1106.0,-663.6Z" fill="#D8343F"/>
+<path d="M512,512 L-663.6,-1106.0 L-106.0,-1390.1Z" fill="#D8343F"/>
+<rect width="1024" height="1024" fill="url(#vg)"/>
+<ellipse cx="512" cy="539.0" rx="270.0" ry="270.0" fill="#280A0F" opacity=".55" filter="url(#bl)"/>
+<circle cx="512" cy="512" r="270" fill="#B9771A"/>
+<circle cx="512" cy="506.6" r="253.79999999999998" fill="#FFCD54"/>
+<circle cx="512" cy="512" r="216.0" fill="#D69626"/>
+<circle cx="512" cy="512" r="205.2" fill="#F6B834"/>
+<circle cx="512" cy="512" r="237.6" fill="none" stroke="#D69626" stroke-width="10.8" stroke-dasharray="9.33 11.40"/>
+<polygon points="512.0,367.5 550.1,466.3 655.8,472.0 573.6,538.8 600.9,641.1 512.0,583.5 423.1,641.1 450.4,538.8 368.2,472.0 473.9,466.3" fill="#96580E"/>
+<polygon points="512.0,360.8 550.1,459.6 655.8,465.3 573.6,532.0 600.9,634.3 512.0,576.8 423.1,634.3 450.4,532.0 368.2,465.3 473.9,459.6" fill="#FFE282"/>
+<polygon points="512.0,404.0 539.0,474.9 614.7,478.6 555.7,526.2 575.5,599.4 512.0,557.9 448.5,599.4 468.3,526.2 409.3,478.6 485.0,474.9" fill="#FFF0BE"/>
+<ellipse cx="458.0" cy="371.6" rx="135.0" ry="81.0" fill="#fff" opacity=".22" filter="url(#bl)"/>
+</svg>

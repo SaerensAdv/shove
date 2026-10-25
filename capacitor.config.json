@@ -1,0 +1,12 @@
+{
+  "appId": "com.saerensadvertising.shove",
+  "appName": "SHOVE",
+  "webDir": "www",
+  "backgroundColor": "#1A0F14",
+  "android": { "backgroundColor": "#1A0F14" },
+  "ios": { "backgroundColor": "#1A0F14", "contentInset": "never" },
+  "plugins": {
+    "SplashScreen": { "launchShowDuration": 900, "launchAutoHide": true, "backgroundColor": "#1A0F14", "showSpinner": false },
+    "LocalNotifications": { "iconColor": "#FFD25A" }
+  }
+}
