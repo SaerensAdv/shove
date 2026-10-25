@@ -1,4 +1,4 @@
-// SHOVE · Carnival coin pusher · prototype v0.7 (Three.js + Rapier, app-ready, art + sound pass)
+// SHOVE · Carnival coin pusher · prototype v0.8 (Three.js + Rapier, fairground side games, balance pass)
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
@@ -7,13 +7,14 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import RAPIER from '@dimforge/rapier3d-compat';
+import { initSideGames, SIDE } from './sidegames.js';
 
 const $ = id => document.getElementById(id);
 const CFG = {
   halfW: 4, front: 5, gutterFrom: 2.2, coinR: 0.42, coinH: 0.08, maxCoins: 230,
   pushBack: -6.0, pushFwd: -4.5, pushHalfZ: 2.0, deckY: 0.7, pushSpeed: 1.25,
-  refillSecs: 30, refillCap: 60, startCoins: 120, dailyBonus: 60, prizeEvery: 25,
-  dropY: 3.0, dropZ: -4.7, ringY: 2.05, ringTol: 0.42, luckyNeed: 3, starChance: 1 / 40, rainCap: 330,
+  refillSecs: 40, refillCap: 50, startCoins: 80, dailyBonus: 50, prizeEvery: 25,
+  dropY: 3.0, dropZ: -4.7, ringY: 2.05, ringTol: 0.18, luckyNeed: 3, starChance: 1 / 150, rainCap: 330,
 };
 const PLUSH = [
   { id: 'bear',  name: 'Bramblebear', col: 0xB07A4F, ear: 'round' },
@@ -42,24 +43,24 @@ const PLUSH = [
   { id: 'ginger',   name: 'Crumbs',   col: 0xB8743E, ear: 'ginger', set: 3 },
 ];
 PLUSH.forEach(p => { p.set ||= 1; });
-const SETS = [{ id: 1, name: 'GARDEN PALS', lv: 1, bonus: 200 }, { id: 2, name: 'NIGHT MARKET', lv: 4, bonus: 300 }, { id: 3, name: 'WINTER FAIR', lv: 7, bonus: 400 }];
+const SETS = [{ id: 1, name: 'GARDEN PALS', lv: 1, bonus: 120 }, { id: 2, name: 'NIGHT MARKET', lv: 4, bonus: 180 }, { id: 3, name: 'WINTER FAIR', lv: 7, bonus: 240 }];
 // booths: each has its own board, look, rule and plush set
 const BOOTHS = [
   { id: 'kermis', name: 'KERMIS', sign: 'SHOVE', set: 1, lv: 1, sky: [[0, '#1B0F2E'], [0.55, '#4A1C3A'], [1, '#C8553D']], fog: 0x2A1230, stripe: ['#D8343F', '#F6EBD5'], cab: 0xA51E2A, warm: 0xFF9A4D, pink: 0xFF5FA2,
-    rule: 'The classic. 3 lucky-ring hits give a wheel spin.', friction: 0.38, luckyNeed: 3, ringSpeed: 1 },
+    rule: 'The classic. 3 lucky-ring hits give a wheel spin.', friction: 0.38, luckyNeed: 3, ringSpeed: 1.2 },
   { id: 'night', name: 'NIGHT MARKET', sign: 'NIGHT MARKET', set: 2, lv: 4, sky: [[0, '#05081A'], [0.6, '#1A1448'], [1, '#6A2A6A']], fog: 0x120E30, stripe: ['#2B3A8F', '#F2C14E'], cab: 0x24307A, warm: 0xFFB04D, pink: 0x7A6BFF,
-    rule: 'Lantern hour: only 2 ring hits for a spin, but the ring swings faster.', friction: 0.38, luckyNeed: 2, ringSpeed: 1.5 },
+    rule: 'Lantern hour: only 2 ring hits for a spin, but the ring swings faster.', friction: 0.38, luckyNeed: 2, ringSpeed: 1.8 },
   { id: 'winter', name: 'WINTER FAIR', sign: 'WINTER FAIR', set: 3, lv: 7, sky: [[0, '#0B1E33'], [0.55, '#2E5A80'], [1, '#B9D6EA']], fog: 0x1E3A55, stripe: ['#2E8FB8', '#FFFFFF'], cab: 0x2B6C8E, warm: 0xBFE4FF, pink: 0xFF8FB0,
-    rule: 'Ice deck: coins slide much further. Bigger avalanches, but the gutters bite.', friction: 0.06, luckyNeed: 3, ringSpeed: 1 },
+    rule: 'Ice deck: coins slide much further. Bigger avalanches, but the gutters bite.', friction: 0.06, luckyNeed: 3, ringSpeed: 1.2 },
 ];
 const booth = () => BOOTHS.find(b => b.id === save.booth) || BOOTHS[0];
 const setUnlocked = s => save.level >= s.lv || !!(save.unlocked && save.unlocked[s.id]);
 const boothOpen = B => setUnlocked(SETS[B.set - 1]);
 const WHEEL = [
-  { id: 'rain15', label: '15 COINS', icon: '🪙', w: 22, col: '#D8343F', ink: '#F6EBD5' },
+  { id: 'rain15', label: '10 COINS', icon: '🪙', w: 22, col: '#D8343F', ink: '#F6EBD5' },
   { id: 'plush', label: 'PLUSHIE', icon: '🧸', w: 13, col: '#F6EBD5', ink: '#5A1020' },
   { id: 'shake', label: '+2 SHAKE', icon: '〰️', w: 11, col: '#2F8FA6', ink: '#F6EBD5' },
-  { id: 'rain25', label: '25 COINS', icon: '💰', w: 14, col: '#D8343F', ink: '#F6EBD5' },
+  { id: 'rain25', label: '18 COINS', icon: '💰', w: 14, col: '#D8343F', ink: '#F6EBD5' },
   { id: 'giant', label: 'GIANT', icon: '🟡', w: 12, col: '#F6EBD5', ink: '#5A1020' },
   { id: 'hour', label: '×2 TIME', icon: '⏱️', w: 11, col: '#2F8FA6', ink: '#F6EBD5' },
   { id: 'walls', label: 'WALLS', icon: '🧱', w: 11, col: '#D8343F', ink: '#F6EBD5' },
@@ -73,6 +74,7 @@ const MPOOL = [
   { id: 'drop', t: n => `Drop ${n} coins`, g: [60, 120], rw: { coins: 20 } },
   { id: 'power', t: n => `Use ${n} power-up${n > 1 ? 's' : ''}`, g: [1, 2], rw: { walls: 1 } },
   { id: 'combo', t: n => `Hit a ×${n} combo`, g: [8, 12], rw: { coins: 25 }, max: true },
+  { id: 'side', t: n => `Play ${n} fair game${n > 1 ? 's' : ''}`, g: [1, 2], rw: { coins: 10 } },
 ];
 // ---------- save ----------
 const STRESS = /[?&#]stress/.test(location.search + location.hash) || !!window.SHOVE_STRESS;
@@ -80,11 +82,11 @@ const KEY = STRESS ? 'shove_stress_tmp' : 'shove_carnival_v1';
 const save = Object.assign({ coins: CFG.startCoins, lastRefill: Date.now(), xp: 0, level: 1, album: {}, shakes: 3, walls: 1, giants: 1, daily: '', dropped: 0, won: 0, sound: true, board: null, lucky: 0, spins: 0, missions: null, streak: 0, streakDay: '', setsDone: {}, booth: 'kermis', boards: {}, unlocked: {}, tut: 0, music: true, haptics: true, quality: 'auto', glow: true, ads: { day: '', n: 0 } },
   STRESS ? { coins: 1e6, sound: false, seenIntro: true, seenRing: true, board: null, tut: 99 } : (() => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } })());
 // ---------- native bridge: the Capacitor app build sets window.SHOVE_NATIVE, the web build leaves it empty ----------
-const N = window.SHOVE_NATIVE || null, NATIVE = !!N, VERSION = '0.7';
+const N = window.SHOVE_NATIVE || null, NATIVE = !!N, VERSION = '0.8';
 let prefT = 0;
 function persist() { if (STRESS) return; const str = JSON.stringify(save); try { localStorage.setItem(KEY, str); } catch (e) {}
   if (NATIVE && N.Preferences) { clearTimeout(prefT); prefT = setTimeout(() => { N.Preferences.set({ key: KEY, value: JSON.stringify(save) }).catch(() => {}); }, 700); } }
-const xpNeed = lv => 40 + lv * 25;
+const xpNeed = lv => 60 + lv * 35;
 if (save.setDone) save.setsDone[1] = true;
 if (save.board && !save.boards.kermis) { save.boards.kermis = save.board; } delete save.board;
 if (!save.tut && save.dropped > 40) save.tut = 99;   // v0.4 players already know the ropes
@@ -405,6 +407,7 @@ function saveBoard() {
 
 // ---------- game ----------
 let wallT = 0, prizeCounter = 0;
+const stats = { drop: 0, won: 0, gutter: 0, plush: 0 };   // machine economy, for balancing
 function refill() {
   const now = Date.now();
   if (save.coins >= CFG.refillCap) { save.lastRefill = now; return; }
@@ -415,7 +418,7 @@ const today = () => new Date().toDateString();
 function dropAt(x) {
   if (save.coins <= 0) { openModal('out'); return false; }
   if (coins.length > CFG.maxCoins + 60) return false;
-  save.coins--; save.dropped++; prizeCounter++; mission('drop');
+  save.coins--; save.dropped++; stats.drop++; prizeCounter++; mission('drop');
   const cx = Math.max(-W + 0.5, Math.min(W - 0.5, x));
   const rec = addCoin(cx, CFG.dropY, CFG.dropZ + (Math.random() - 0.5) * 0.5); rec.fresh = true;
   if (Math.random() < CFG.starChance) { const st = addCoin(Math.max(-3, Math.min(3, cx + (Math.random() - 0.5))), CFG.dropY + 0.6, CFG.dropZ, 2); st.fresh = true; toast('⭐ A lucky token fell in!'); }
@@ -437,26 +440,26 @@ function dropGiant() { addCoin((Math.random() - 0.5) * 2, 3, -1.8, 1); tone(200,
 function useGiant() { if (save.giants <= 0) return; save.giants--; mission('power'); dropGiant(); toast('Giant coin incoming!'); hud(); persist(); }
 function gainXP(n) {
   save.xp += n;
-  while (save.xp >= xpNeed(save.level)) { save.xp -= xpNeed(save.level); save.level++; save.coins += 20; save.shakes++; if (save.level % 2 === 0) save.walls++; if (save.level % 3 === 0) save.giants++;
-    toast(`⭐ Level ${save.level}! +20 coins, +1 shake${save.level % 2 === 0 ? ', +1 wall' : ''}${save.level % 3 === 0 ? ', +1 giant coin' : ''}`); tone(523, 1046, 0.3, 'triangle', 0.07); tone(784, 1568, 0.35, 'triangle', 0.06, 0.12); buzz([30, 40, 30]);
+  while (save.xp >= xpNeed(save.level)) { save.xp -= xpNeed(save.level); save.level++; save.coins += 10; save.shakes++; if (save.level % 2 === 0) save.walls++; if (save.level % 3 === 0) save.giants++;
+    toast(`⭐ Level ${save.level}! +10 coins, +1 shake${save.level % 2 === 0 ? ', +1 wall' : ''}${save.level % 3 === 0 ? ', +1 giant coin' : ''}`); tone(523, 1046, 0.3, 'triangle', 0.07); tone(784, 1568, 0.35, 'triangle', 0.06, 0.12); buzz([30, 40, 30]);
     const nb = BOOTHS.find(x => x.lv === save.level); if (nb && nb.lv > 1) { toast(`🎪 New booth open: ${nb.name}! Tap 🎪 to walk over.`, 4); $('boothDot').classList.remove('hidden'); } }
 }
 // combo: coins tumbling off in a burst
 let combo = 0, comboT = 0, comboBest = 0;
 function bumpCombo() { combo++; comboT = 1.3; mission('combo', combo);
-  if (combo === 15 || combo === 30 || combo === 50) { const b = combo === 15 ? 5 : combo === 30 ? 15 : 30; save.coins += b; toast(`${combo === 50 ? '🌋 MEGA AVALANCHE' : '💥 AVALANCHE'} ×${combo}! +${b} bonus`); tone(523, 784, 0.2, 'square', 0.05); tone(784, 1175, 0.3, 'square', 0.05, 0.1); buzz([20, 30, 20]); }
+  if (combo === 15 || combo === 30 || combo === 50) { const b = combo === 15 ? 3 : combo === 30 ? 8 : 20; save.coins += b; toast(`${combo === 50 ? '🌋 MEGA AVALANCHE' : '💥 AVALANCHE'} ×${combo}! +${b} bonus`); tone(523, 784, 0.2, 'square', 0.05); tone(784, 1175, 0.3, 'square', 0.05, 0.1); buzz([20, 30, 20]); }
   $('combo').textContent = '×' + combo; $('combo').classList.toggle('on', combo >= 5); $('combo').classList.toggle('hot', combo >= 15);
   $('combo').style.animation = 'none'; void $('combo').offsetWidth; $('combo').style.animation = ''; }
 let goldT = 0, rainQ = 0, rainT = 0;
 function collectCoin(c) {
   if (c.star) { save.won++; toast('⭐ Lucky token! Spin the wheel'); queueSpin(); buzz(40); return; }
   let v = c.giant ? 10 : 1; if (goldT > 0) v *= 2;
-  save.coins += v; save.won += v; gainXP(v); mission('win', v); bumpCombo(); clink(c.giant ? 2 : 1, 1 + Math.min(combo, 30) * 0.025); popup('+' + v); if (c.giant) buzz(40);
+  save.coins += v; save.won += v; stats.won += v; gainXP(v); mission('win', v); bumpCombo(); clink(c.giant ? 2 : 1, 1 + Math.min(combo, 30) * 0.025); popup('+' + v); if (c.giant) buzz(40);
   const t = c.body.translation(); sparkBurst(t.x, -0.1, CFG.front + 0.35, c.giant ? 26 : combo >= 15 ? 10 : 5, c.giant ? 1.4 : 1);
 }
 function collectPrize(p) {
   const key = p.kind + (p.golden ? '_gold' : ''); const first = !save.album[key];
-  save.album[key] = (save.album[key] || 0) + 1; gainXP(15); save.coins += 5; mission('plush');
+  save.album[key] = (save.album[key] || 0) + 1; stats.plush++; gainXP(15); mission('plush');
   const P = PLUSH.find(x => x.id === p.kind);
   showCard(P, p.golden, first); confetti(p.golden ? 150 : first ? 90 : 40);
   tone(784, 1175, 0.2, 'triangle', 0.07); tone(1175, 1568, 0.3, 'triangle', 0.06, 0.15); buzz([40, 50, 80]);
@@ -478,7 +481,7 @@ function drawWheel() {
   x.beginPath(); x.arc(0, 0, 48, 0, Math.PI * 2); x.fillStyle = '#D8343F'; x.fill(); x.lineWidth = 8; x.strokeStyle = '#FFD25A'; x.stroke();
   x.fillStyle = '#FFD25A'; x.font = '900 22px Bungee, Impact, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('SPIN', 0, 2); x.restore();
 }
-function queueSpin() { pendingSpins++; tone(523, 1046, 0.2, 'square', 0.04); if (!wheelOpen) setTimeout(openWheel, 500); else updateSpinBtn(); }
+function queueSpin() { pendingSpins++; stats.spins = (stats.spins || 0) + 1; tone(523, 1046, 0.2, 'square', 0.04); if (!wheelOpen) setTimeout(openWheel, 500); else updateSpinBtn(); }
 function updateSpinBtn() { const b = $('spinBtn'); b.disabled = spinning; b.textContent = spinning ? 'SPINNING…' : pendingSpins > 0 ? (pendingSpins > 1 ? `SPIN! (${pendingSpins})` : 'SPIN!') : 'COLLECT'; }
 function openWheel() { wheelOpen = true; drawWheel(); $('wheelRes').textContent = 'Every slice shows its real odds.'; $('wheel').classList.remove('hidden'); updateSpinBtn(); }
 function spin() {
@@ -495,14 +498,14 @@ function spin() {
 }
 function reward(s) {
   const say = t => { $('wheelRes').textContent = t; toast(t); };
-  if (s.id === 'rain15') { rainQ += 15; say('🪙 Coin shower! 15 coins rain down'); }
-  if (s.id === 'rain25') { rainQ += 25; say('💰 Big coin shower! 25 coins'); }
+  if (s.id === 'rain15') { rainQ += 10; say('🪙 Coin shower! 10 coins rain down'); }
+  if (s.id === 'rain25') { rainQ += 18; say('💰 Big coin shower! 18 coins'); }
   if (s.id === 'plush') { dropPrize(); say('🧸 A plushie drops on the pusher'); }
   if (s.id === 'shake') { save.shakes += 2; say('〰️ +2 shakes'); }
   if (s.id === 'giant') { dropGiant(); say('🟡 Giant coin incoming'); }
   if (s.id === 'hour') { goldT = Math.max(goldT, 0) + 20; say('⏱️ Double time! Every coin counts ×2 for 20 s'); }
   if (s.id === 'walls') { wallsOn(25); say('🧱 Free walls for 25 s'); }
-  if (s.id === 'jackpot') { rainQ += 50; dropPrize(true); jackFx = 3; confetti(180); say('🎰 JACKPOT! 50 coins + a golden plushie'); buzz([60, 40, 60, 40, 120]); for (let i = 0; i < 6; i++) tone(523 * Math.pow(1.26, i % 4), 1046, 0.25, 'square', 0.05, i * 0.12); }
+  if (s.id === 'jackpot') { rainQ += 35; dropPrize(true); jackFx = 3; confetti(180); say('🎰 JACKPOT! 35 coins + a golden plushie'); buzz([60, 40, 60, 40, 120]); for (let i = 0; i < 6; i++) tone(523 * Math.pow(1.26, i % 4), 1046, 0.25, 'square', 0.05, i * 0.12); }
   else { tone(784, 1568, 0.3, 'triangle', 0.07); buzz(50); }
   persist(); hud();
 }
@@ -672,7 +675,7 @@ function hud() {
 }
 let albumSet = 1;
 function openModal(id) {
-  for (const m of ['album', 'shop', 'out', 'missions', 'booths', 'settings', 'backup', 'away', 'odds']) $(m).classList.toggle('hidden', m !== id);
+  for (const m of ['album', 'shop', 'out', 'missions', 'booths', 'settings', 'backup', 'away', 'odds', 'fair']) $(m).classList.toggle('hidden', m !== id);
   if (id === 'album') {
     const S = SETS[albumSet - 1], open = setUnlocked(S), list = PLUSH.filter(p => p.set === S.id);
     $('albumTabs').innerHTML = SETS.map(x => `<button data-set="${x.id}" class="${x.id === albumSet ? 'on' : ''}">${x.name}${setUnlocked(x) ? '' : ' 🔒'}</button>`).join('');
@@ -706,6 +709,11 @@ function openModal(id) {
     $('installBtn').classList.toggle('hidden', !canInstall());
     $('verLine').textContent = `SHOVE v${VERSION} · ${NATIVE ? 'app' : standalone() ? 'home screen' : 'browser'} · Auto lowers resolution and shadows when your phone can't keep up.`;
   }
+  if (id === 'fair') {
+    $('fairList').innerHTML = SIDE.map(G => { const open = save.level >= G.lv;
+      return `<button class="fg ${open ? '' : 'locked'}" data-fg="${G.id}" ${open ? '' : 'disabled'}><span>${G.icon}</span><div><b>${G.name}</b><small>${open ? G.blurb : `Opens at level ${G.lv}`}</small></div><em>${open ? G.cost + ' 🪙' : '🔒'}</em></button>`; }).join('');
+    $('fairList').querySelectorAll('[data-fg]').forEach(b => b.onclick = () => { $('fair').classList.add('hidden'); SG.open(b.dataset.fg); });
+  }
   if (id === 'odds') {
     const pct = w => Math.round(w / wTotal * 1000) / 10 + '%';
     $('oddsList').innerHTML = WHEEL.map(s => `<div class="od"><span>${s.icon}</span><b>${s.label}</b><em>${pct(s.w)}</em></div>`).join('');
@@ -738,6 +746,7 @@ document.querySelectorAll('[data-q]').forEach(b => b.addEventListener('click', (
 $('remBtn').addEventListener('click', () => { save.remind = !save.remind; persist(); openModal('settings'); setReminder(save.remind); });
 $('bkCopy').addEventListener('click', () => openBackup('copy')); $('bkLoad').addEventListener('click', () => openBackup('load'));
 $('installBtn').addEventListener('click', install);
+$('bFair').addEventListener('click', () => openModal('fair'));
 $('oddsBtn').addEventListener('click', () => openModal('odds')); $('wheelOdds').addEventListener('click', () => { $('wheel').classList.add('hidden'); wheelOpen = false; openModal('odds'); if (pendingSpins > 0) $('oddsBack').classList.remove('hidden'); });
 $('oddsBack').addEventListener('click', () => { $('odds').classList.add('hidden'); $('oddsBack').classList.add('hidden'); openWheel(); });
 $('tutReplay').addEventListener('click', () => { save.tut = 0; tutBase = null; persist(); $('settings').classList.add('hidden'); });
@@ -754,6 +763,17 @@ window.addEventListener('pointerup', () => { holding = false; });
 // aim marker (a ghost coin riding above the pusher)
 const ghost = new THREE.Mesh(new THREE.CylinderGeometry(CFG.coinR, CFG.coinR, CFG.coinH * 2, 24), new THREE.MeshBasicMaterial({ color: 0xFFE38A, transparent: true, opacity: 0.45 })); scene.add(ghost);
 
+// one fixed 1/60 s physics tick: pusher, ring hits, coins and prizes leaving the machine
+function physStep() {
+    pushT += 1 / 60; ringT += booth().ringSpeed / 60; pusherBody.setNextKinematicTranslation({ x: 0, y: CFG.deckY / 2, z: pusherZ() });
+    world.step(); simSteps++;
+    for (const c of coins) if (c.fresh) { const t = c.body.translation();
+      if (c.py > CFG.ringY && t.y <= CFG.ringY && Math.abs(t.x - ringX()) < CFG.ringTol && Math.abs(t.z - CFG.dropZ) < 0.7) { luckyHit(); if (c.star) c.fresh = false; }
+      if (t.y < 1.05) { c.fresh = false; clatter(); } c.py = t.y; }
+    // collect / lose
+    for (let i = coins.length - 1; i >= 0; i--) { const t = coins[i].body.translation(); if (t.y < -0.6) { const won = t.z > CFG.front - 0.2 && Math.abs(t.x) < W + 0.05; if (won) collectCoin(coins[i]); else { stats.gutter++; tone(240, 140, 0.12, 'sine', 0.02); if (coins[i].star) toast('Lucky token slipped into the gutter…'); } world.removeRigidBody(coins[i].body); coins.splice(i, 1); } }
+    for (let i = prizes.length - 1; i >= 0; i--) { const t = prizes[i].body.translation(); if (t.y < -0.6) { if (t.z > CFG.front - 0.3) collectPrize(prizes[i]); else toast('A prize slipped into the gutter…'); world.removeRigidBody(prizes[i].body); scene.remove(prizes[i].mesh); prizes.splice(i, 1); } }
+}
 // ---------- loop ----------
 let last = performance.now(), acc = 0, shakeFx = 0, saveT = 0, hudT = 0, bulbT = 0;
 const dummy = new THREE.Object3D();
@@ -762,16 +782,7 @@ function frame(now) {
   const tA = performance.now();
   const rawFt = now - last; const dt = Math.min(0.05, rawFt / 1000); last = now;
   acc += dt; let steps = 0;
-  while (acc >= 1 / 60 && steps < 2) {
-    pushT += 1 / 60; ringT += booth().ringSpeed / 60; pusherBody.setNextKinematicTranslation({ x: 0, y: CFG.deckY / 2, z: pusherZ() });
-    world.step(); acc -= 1 / 60; steps++; simSteps++;
-    for (const c of coins) if (c.fresh) { const t = c.body.translation();
-      if (c.py > CFG.ringY && t.y <= CFG.ringY && Math.abs(t.x - ringX()) < CFG.ringTol && Math.abs(t.z - CFG.dropZ) < 0.7) { luckyHit(); if (c.star) c.fresh = false; }
-      if (t.y < 1.05) { c.fresh = false; clatter(); } c.py = t.y; }
-    // collect / lose
-    for (let i = coins.length - 1; i >= 0; i--) { const t = coins[i].body.translation(); if (t.y < -0.6) { const won = t.z > CFG.front - 0.2 && Math.abs(t.x) < W + 0.05; if (won) collectCoin(coins[i]); else { tone(240, 140, 0.12, 'sine', 0.02); if (coins[i].star) toast('Lucky token slipped into the gutter…'); } world.removeRigidBody(coins[i].body); coins.splice(i, 1); } }
-    for (let i = prizes.length - 1; i >= 0; i--) { const t = prizes[i].body.translation(); if (t.y < -0.6) { if (t.z > CFG.front - 0.3) collectPrize(prizes[i]); else toast('A prize slipped into the gutter…'); world.removeRigidBody(prizes[i].body); scene.remove(prizes[i].mesh); prizes.splice(i, 1); } }
-  }
+  while (acc >= 1 / 60 && steps < 2) { physStep(); acc -= 1 / 60; steps++; }
   if (acc > 0.1) acc = 0;
   const tB = performance.now();
   if (rainQ > 0) { rainT -= dt; while (rainT <= 0 && rainQ > 0) { rainT += 0.055; rainQ--; if (coins.length < CFG.rainCap) { const r = addCoin(-3.3 + Math.random() * 6.6, 3.6 + Math.random() * 0.6, -4.6 + Math.random() * 7.2); r.py = 9; if (Math.random() < 0.3) clatter(); } else { save.coins++; popup('+1'); } } }
@@ -803,7 +814,7 @@ function frame(now) {
   saveT += dt; if (saveT > 6) { saveT = 0; save.seen = Date.now(); saveBoard(); }
   music();
   const tC = performance.now();
-  if (!shelfOpen) { if (glowOn()) composer.render(); else renderer.render(scene, camera); }
+  if (!shelfOpen && !SG.S.open) { if (glowOn()) composer.render(); else renderer.render(scene, camera); }
   if (perfHook) perfHook(now, dt, tB - tA, performance.now() - tC, steps);
   requestAnimationFrame(frame);
 }
@@ -870,6 +881,9 @@ function nativeHooks() { if (!NATIVE) return;
     const open = [...document.querySelectorAll('.modal')].find(m => !m.classList.contains('hidden') && m.id !== 'wheel');
     if (open) open.classList.add('hidden'); else if (shelfOpen) closeShelf(); else { goAway(); N.App.minimizeApp().catch(() => {}); } }); }
 
+// ---------- fairground side games ----------
+const SG = initSideGames({ save, persist, hud, toast, tone, buzz, $, mission, gainXP, booth, PLUSH, plushThumb, checkSets, showCard });
+
 // ---------- boot ----------
 (async () => {
   if (NATIVE && N.Preferences && !STRESS && !localStorage.getItem(KEY)) {   // iOS can wipe WebView storage: restore from native storage
@@ -896,4 +910,5 @@ let perfHook = null;
 function setQuality({ dpr, shadows }) { if (dpr) { renderer.setPixelRatio(dpr); resize(); } if (shadows !== undefined) { key.castShadow = shadows; renderer.shadowMap.needsUpdate = true; } }
 function addLooseCoin() { return addCoin(-3.3 + Math.random() * 6.6, 3.2 + Math.random() * 0.8, -2.2 + Math.random() * 6); }
 function trimTo(n) { while (coins.length > n) { const i = Math.floor(Math.random() * coins.length); world.removeRigidBody(coins[i].body); coins.splice(i, 1); } }
-window.__k = { switchBooth, openShelf, closeShelf, watchAd, buyPlush, BOOTHS, get qTier() { return qTier; }, STRESS, renderer, setQuality, addLooseCoin, trimTo, burst() { rainQ += 50; doShake(); }, set perfHook(f) { perfHook = f; }, get simSteps() { return simSteps; }, ready: false, save, coins, prizes, dropAt, useShake, useWall, useGiant, openModal, CFG, queueSpin, spin, luckyHit, showCard, PLUSH, reward, WHEEL, mission, ringX, get combo() { return combo; }, get rainQ() { return rainQ; }, set goldT(v) { goldT = v; }, bumpCombo, get world() { return world; }, welcome, backupCode, readCode, openBackup, goAway, comeBack, confetti, sparkBurst, get glow() { return !!glowOn(); } };
+window.__k = { switchBooth, openShelf, closeShelf, watchAd, buyPlush, BOOTHS, get qTier() { return qTier; }, STRESS, renderer, setQuality, addLooseCoin, trimTo, burst() { rainQ += 50; doShake(); }, set perfHook(f) { perfHook = f; }, get simSteps() { return simSteps; }, ready: false, save, coins, prizes, dropAt, useShake, useWall, useGiant, openModal, CFG, queueSpin, spin, luckyHit, showCard, PLUSH, reward, WHEEL, mission, ringX, get combo() { return combo; }, get rainQ() { return rainQ; }, set goldT(v) { goldT = v; }, bumpCombo, get world() { return world; }, welcome, backupCode, readCode, openBackup, goAway, comeBack, confetti, sparkBurst, stats, SG,
+  sim(secs, perSec = 3) { const every = Math.round(60 / perSec); for (let i = 0; i < secs * 60; i++) { if (i % every === 0) { save.coins = Math.max(save.coins, 50); dropAt((Math.random() - 0.5) * 6); } physStep(); } }, get glow() { return !!glowOn(); } };
