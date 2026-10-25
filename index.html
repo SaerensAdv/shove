@@ -1,7 +1,7 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <link rel="manifest" href="./manifest.json"><meta name="theme-color" content="#1A0F14"><link rel="icon" href="./icons/icon-192.png"><link rel="apple-touch-icon" href="./icons/icon-180.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="SHOVE">
-<title>SHOVE · Carnival coin pusher · prototype v0.6</title>
+<title>SHOVE · Carnival coin pusher · prototype v0.7</title>
 <link href="https://fonts.googleapis.com/css2?family=Bungee&family=DM+Sans:wght@500;700;800&display=swap" rel="stylesheet">
 <style>
 :root{--red:#D8343F;--gold:#FFD25A;--cream:#F6EBD5;--ink:#1A0F14;--sky:#1B0F2E}
@@ -110,6 +110,9 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--sky);font-family
 #away .panel{text-align:center;border-color:var(--gold)}#awayLine{opacity:.8}
 .aw{display:flex;gap:12px;align-items:center;text-align:left;background:#1A0F14;border:2px solid #3A2430;border-radius:14px;padding:10px 12px;margin-top:8px}.aw span{font-size:26px}.aw b{display:block;font-size:16px}.aw small{opacity:.65;font-size:13px}
 #installBtn{background:#F6EBD5}
+.od{display:flex;gap:10px;align-items:center;padding:8px 2px;border-bottom:1px solid #3A2430}.od span{font-size:20px;width:26px;text-align:center}.od b{flex:1;font-size:15px}.od em{font-style:normal;font-family:Bungee,Impact,sans-serif;color:var(--gold)}
+.linkrow{display:flex;gap:14px;justify-content:center;margin-top:12px}.linkrow a,.linkrow button{color:var(--cream);opacity:.75;font:700 14px "DM Sans",system-ui,sans-serif;background:none;border:none;text-decoration:underline;cursor:pointer;padding:4px}
+#wheelOdds{background:none;border:none;color:var(--cream);opacity:.75;font:700 14px "DM Sans",system-ui,sans-serif;text-decoration:underline;margin-top:10px;cursor:pointer}
 #shelf{position:fixed;inset:0;z-index:6;background:#1B0F2E}#shelfCv{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
 #shelf .sh-top{position:absolute;left:0;right:0;top:0;padding:max(10px,env(safe-area-inset-top)) 12px 0;display:flex;gap:8px;align-items:center}
 #shelf .tabs{flex:1;margin:0}#shelf .x{position:static;font-size:28px;background:rgba(26,15,20,.8);border:2px solid #8A5A12;border-radius:12px;width:44px;height:44px}
@@ -162,13 +165,15 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--sky);font-family
   <div class="row2"><button class="pack" id="bkCopy">💾 Backup code</button><button class="pack" id="bkLoad">↩︎ Restore</button></div>
   <button class="btn" id="installBtn">📲 Put SHOVE on your home screen</button>
   <button class="btn" id="tutReplay">Replay the tutorial</button>
+  <div class="linkrow"><button id="oddsBtn">Odds &amp; fair play</button><a href="./privacy.html" target="_blank" rel="noopener">Privacy</a></div>
   <div class="note" id="verLine"></div></div></div>
+<div class="modal hidden" id="odds"><div class="panel"><button class="x" data-close>×</button><h2>THE ODDS</h2><p>Every chance in SHOVE, out in the open. Spins are only earned by playing, never sold.</p><div class="sub">LUCKY WHEEL</div><div id="oddsList"></div><div class="sub">ON THE MACHINE</div><div id="oddsMore"></div><div class="fair"><b>Fair play:</b> coins can't be bought or cashed out, and nothing in SHOVE has real-world value.</div><button class="btn hidden" id="oddsBack">BACK TO THE WHEEL</button></div></div>
 <div class="modal hidden" id="backup"><div class="panel"><button class="x" data-close>×</button><h2 id="bkTitle">BACKUP</h2><p id="bkInfo"></p><textarea id="bkText" spellcheck="false" autocomplete="off"></textarea><div id="bkMsg"></div><button class="btn" id="bkAct">COPY</button></div></div>
 <div class="modal hidden" id="away"><div class="panel"><h2>WELCOME BACK</h2><p id="awayLine"></p><div id="awayList"></div><button class="btn" id="awayGo">BACK TO THE MACHINE</button></div></div>
 <div id="shelf" class="hidden"><canvas id="shelfCv"></canvas><div class="sh-top"><div class="tabs" id="shelfTabs"></div><button class="x" id="shelfClose">×</button></div><div id="shelfInfo"></div></div>
 <div id="adOv" class="hidden"><div><small>AD · PROTOTYPE PLACEHOLDER</small><b id="adT">5</b><small>Your coins are on their way</small></div></div>
 <div class="modal hidden" id="missions"><div class="panel"><button class="x" data-close>×</button><h2>DAILY TASKS</h2><p>Three new tasks every day. Finish all three to grow your streak.</p><div id="missList"></div><div class="note" id="streakLine"></div></div></div>
-<div class="modal hidden" id="wheel"><div class="wheelbox"><h2>LUCKY WHEEL</h2><div class="wwrap"><canvas id="wheelCv" width="600" height="600"></canvas><div class="pointer"></div></div><div id="wheelRes"></div><button class="btn" id="spinBtn">SPIN!</button></div></div>
+<div class="modal hidden" id="wheel"><div class="wheelbox"><h2>LUCKY WHEEL</h2><div class="wwrap"><canvas id="wheelCv" width="600" height="600"></canvas><div class="pointer"></div></div><div id="wheelRes"></div><button class="btn" id="spinBtn">SPIN!</button><button id="wheelOdds">See the odds</button></div></div>
 <div class="modal hidden" id="out"><div class="panel"><button class="x" data-close>×</button><h2>OUT OF COINS</h2><p id="outLine"></p><button class="btn" id="outAd">📺 Watch an ad</button><button class="pack" id="outShop">Coin booth</button></div></div>
 <div id="loading">WARMING UP<br>THE MACHINE…</div>
 <script type="importmap">{"imports":{
