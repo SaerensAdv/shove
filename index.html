@@ -1,10 +1,11 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>SHOVE · Carnival coin pusher · prototype v0.4</title>
+<title>SHOVE · Carnival coin pusher · prototype v0.5</title>
 <link href="https://fonts.googleapis.com/css2?family=Bungee&family=DM+Sans:wght@500;700;800&display=swap" rel="stylesheet">
 <style>
 :root{--red:#D8343F;--gold:#FFD25A;--cream:#F6EBD5;--ink:#1A0F14;--sky:#1B0F2E}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+button{font-family:inherit}
 html,body{margin:0;height:100%;overflow:hidden;background:var(--sky);font-family:"DM Sans",system-ui,sans-serif;color:var(--cream);touch-action:none;user-select:none;-webkit-user-select:none}
 #cv{position:fixed;inset:0;width:100%;height:100%;display:block}
 .top{position:fixed;left:0;right:0;top:0;padding:max(10px,env(safe-area-inset-top)) 12px 0;display:flex;gap:8px;align-items:flex-start;pointer-events:none}
@@ -22,7 +23,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--sky);font-family
 .sp{flex:1}
 .side{position:fixed;right:10px;top:calc(max(10px,env(safe-area-inset-top)) + 62px);display:flex;flex-direction:column;gap:12px;z-index:2}
 .ibtn.bump{animation:bump .5s}@keyframes bump{40%{transform:scale(1.3)}}
-.lucky{display:flex;align-items:center;gap:5px;font:800 11px "DM Sans";letter-spacing:.08em}
+.lucky{display:flex;align-items:center;gap:5px;font:800 11px "DM Sans",system-ui,sans-serif;letter-spacing:.08em}
 .lucky i{width:13px;height:13px;border-radius:50%;background:#4A2A26;border:2px solid #8A5A12}.lucky i.on{background:#FFE38A;box-shadow:0 0 10px #FFC54D;border-color:#FFE38A}
 #hour{background:linear-gradient(90deg,#FFD25A,#FF8A3D);color:var(--ink);font-family:Bungee,Impact,sans-serif;font-size:13px;border-color:#FFE38A;animation:pulse .6s infinite alternate}
 @keyframes pulse{to{transform:scale(1.06)}}
@@ -38,9 +39,9 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--sky);font-family
 @keyframes cardout{from{transform:translate(-50%,0) scale(1) rotate(-2deg);opacity:1}to{transform:translate(30vw,-22vh) scale(.15);opacity:.3}}
 #card.gold{background:linear-gradient(135deg,#FFF3C4,#F2C14E);border-color:#8A5A12}
 #card img{width:84px;height:84px;border-radius:16px;background:radial-gradient(#FFE9C9,#F2C9A0)}
-#card em{font-style:normal;font:800 11px "DM Sans";letter-spacing:.1em;background:var(--ink);color:var(--cream);border-radius:6px;padding:2px 6px}#card em.new{background:var(--red)}
+#card em{font-style:normal;font:800 11px "DM Sans",system-ui,sans-serif;letter-spacing:.1em;background:var(--ink);color:var(--cream);border-radius:6px;padding:2px 6px}#card em.new{background:var(--red)}
 #card b{display:block;font-family:Bungee,Impact,sans-serif;font-size:22px;margin:4px 0 2px}#card small{font-weight:700;font-size:12px;opacity:.7}
-.tabs{display:flex;gap:6px;margin:6px 0 4px}.tabs button{flex:1;font:800 12px "DM Sans";letter-spacing:.06em;background:#1A0F14;color:var(--cream);border:2px solid #3A2430;border-radius:12px;padding:8px 4px;cursor:pointer}.tabs button.on{border-color:var(--gold);color:var(--gold)}
+.tabs{display:flex;gap:6px;margin:6px 0 4px}.tabs button{flex:1;font:800 12px "DM Sans",system-ui,sans-serif;letter-spacing:.06em;background:#1A0F14;color:var(--cream);border:2px solid #3A2430;border-radius:12px;padding:8px 4px;cursor:pointer}.tabs button.on{border-color:var(--gold);color:var(--gold)}
 .slot img{width:58px;height:58px;display:block;margin:0 auto 2px}.slot img.sil{filter:brightness(0) opacity(.45)}.slot.gold{background:linear-gradient(#3A2A10,#1A0F14)}
 .grid.locked{opacity:.35;pointer-events:none}
 .mis{display:flex;gap:10px;align-items:center;background:#1A0F14;border:2px solid #3A2430;border-radius:14px;padding:10px 12px;margin-top:8px}
@@ -55,7 +56,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--sky);font-family
 #wheelRes{min-height:44px;margin-top:10px;font-weight:800;font-size:16px}
 #wheel .btn{max-width:260px;margin:8px auto 0}
 .bottom{position:fixed;left:0;right:0;bottom:0;padding:0 12px max(14px,env(safe-area-inset-bottom));display:flex;justify-content:center;gap:10px;pointer-events:none}
-.pw{pointer-events:auto;min-width:92px;border-radius:18px;border:3px solid #8A5A12;background:linear-gradient(#2E1720,#1A0F14);color:var(--cream);font:800 13px "DM Sans";padding:8px 10px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;box-shadow:0 4px 0 #5A3A0A}
+.pw{pointer-events:auto;min-width:92px;border-radius:18px;border:3px solid #8A5A12;background:linear-gradient(#2E1720,#1A0F14);color:var(--cream);font:800 13px "DM Sans",system-ui,sans-serif;padding:8px 10px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;box-shadow:0 4px 0 #5A3A0A}
 .pw span{font-size:22px;line-height:1}.pw b{font-family:Bungee,Impact,sans-serif;font-size:14px;color:var(--gold)}
 .pw:disabled{opacity:.4}
 #toast{position:fixed;left:50%;top:22%;transform:translate(-50%,-10px) scale(.95);max-width:86%;text-align:center;background:var(--cream);color:var(--ink);font-weight:800;font-size:17px;border-radius:16px;padding:10px 16px;border:3px solid var(--red);opacity:0;transition:all .2s;pointer-events:none;box-shadow:0 8px 24px rgba(0,0,0,.4)}
@@ -75,10 +76,40 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--sky);font-family
 .slot b{display:block;font-size:12px}.slot small{font-size:11px;opacity:.7}
 .btn{display:block;width:100%;font-family:Bungee,Impact,sans-serif;font-size:17px;background:var(--gold);color:var(--ink);border:none;border-radius:14px;padding:13px;margin-top:8px;cursor:pointer;box-shadow:0 4px 0 #8A5A12}
 .btn:disabled{opacity:.5}
-.pack{display:flex;justify-content:space-between;align-items:center;background:#1A0F14;border:2px solid #3A2430;border-radius:14px;padding:10px 12px;margin-top:8px;cursor:pointer;color:var(--cream);font:800 16px "DM Sans";width:100%}
+.pack{display:flex;justify-content:space-between;align-items:center;background:#1A0F14;border:2px solid #3A2430;border-radius:14px;padding:10px 12px;margin-top:8px;cursor:pointer;color:var(--cream);font:800 16px "DM Sans",system-ui,sans-serif;width:100%}
 .pack em{font-style:normal;color:var(--gold);font-family:Bungee,Impact,sans-serif}
 .note{font-size:12px;opacity:.6;margin-top:10px}
 #loading{position:fixed;inset:0;display:grid;place-items:center;background:var(--sky);font-family:Bungee,Impact,sans-serif;font-size:26px;color:var(--gold);z-index:9;text-align:center}
+.side{gap:10px}.side .ibtn{width:44px;height:44px}
+#coach{position:fixed;left:12px;right:12px;top:calc(max(10px,env(safe-area-inset-top)) + 64px);margin:0 60px 0 0;z-index:3;background:#F6EBD5;color:#1A0F14;border:3px solid #D8343F;border-radius:18px;padding:12px 14px;box-shadow:0 10px 26px rgba(0,0,0,.45);pointer-events:auto;animation:coachIn .35s cubic-bezier(.2,1.5,.4,1)}
+#coach p{margin:0;font-size:16px;line-height:1.35;font-weight:700}#coach .cr{display:flex;justify-content:space-between;align-items:center;margin-top:8px;font:800 12px "DM Sans",system-ui,sans-serif;letter-spacing:.08em;opacity:.7}
+#coach button{background:none;border:none;font:800 13px "DM Sans",system-ui,sans-serif;color:#1A0F14;text-decoration:underline;cursor:pointer;padding:4px}
+@keyframes coachIn{from{transform:translateY(-10px) scale(.95);opacity:0}}
+#tutArrow{position:fixed;z-index:3;width:0;height:0;pointer-events:none;border-left:16px solid transparent;border-right:16px solid transparent;border-top:26px solid #FFD25A;filter:drop-shadow(0 3px 0 #8A2A12);transform:translate(-50%,-110%);animation:bob .8s ease-in-out infinite alternate}
+#tutArrow.left{border:none;border-top:16px solid transparent;border-bottom:16px solid transparent;border-left:26px solid #FFD25A;transform:translate(-100%,-50%);animation:bobx .8s ease-in-out infinite alternate}
+#coach.hidden+#tutArrow{display:none}
+@keyframes bob{to{margin-top:-10px}}@keyframes bobx{to{margin-left:-10px}}
+.pack.pb{gap:10px;justify-content:flex-start}.pack.pb img{width:44px;height:44px;border-radius:10px;background:#2A1620}.pack.pb span{flex:1;text-align:left}.pack.pb small{display:block;font-size:12px;opacity:.65;font-weight:700}
+.pack:disabled{opacity:.5}.pack em small{font-size:11px}
+#adBtn em{font-family:"DM Sans",system-ui,sans-serif;font-size:12px;color:var(--cream);opacity:.7}
+.sub{font-family:Bungee,Impact,sans-serif;font-size:14px;color:var(--gold);margin:16px 0 2px;letter-spacing:.04em}
+.fair{font-size:13px;opacity:.75;margin-top:12px;line-height:1.4;padding:10px 12px;border:2px dashed #3A2430;border-radius:12px}
+.booth{border-radius:16px;padding:12px 14px;margin-top:10px;border:2px solid #3A2430;background:linear-gradient(135deg,#2A1620,#1A0F14)}
+.booth.b-kermis{background:linear-gradient(135deg,#5A1424,#1A0F14)}.booth.b-night{background:linear-gradient(135deg,#1A1A5A,#0E0A24)}.booth.b-winter{background:linear-gradient(135deg,#1E4E6E,#0E1E2E)}
+.booth.here{border-color:var(--gold)}.booth.locked{opacity:.8}
+.booth .bh{display:flex;justify-content:space-between;align-items:baseline;gap:8px}.booth .bh b{font-family:Bungee,Impact,sans-serif;font-size:20px;font-weight:400}.booth .bh small{font-size:12px;font-weight:800;opacity:.75}
+.booth p{margin:6px 0 8px;font-size:14px;opacity:.85}.booth .tag{font:800 12px "DM Sans",system-ui,sans-serif;letter-spacing:.1em;color:var(--gold)}
+.booth .btn{margin-top:4px;padding:10px}.lockrow{display:flex;gap:10px;align-items:center}.lockrow span{font-weight:800;font-size:14px;white-space:nowrap}.lockrow .pack{margin-top:0;padding:8px 10px;font-size:14px}
+.setrow{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #3A2430;font-weight:800;font-size:15px}
+.tg,.seg button{font:800 13px "DM Sans",system-ui,sans-serif;background:#1A0F14;color:var(--cream);border:2px solid #3A2430;border-radius:10px;padding:7px 12px;cursor:pointer}.tg.on,.seg button.on{background:var(--gold);color:var(--ink);border-color:var(--gold)}
+.seg{display:flex;gap:6px}
+#shelf{position:fixed;inset:0;z-index:6;background:#1B0F2E}#shelfCv{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
+#shelf .sh-top{position:absolute;left:0;right:0;top:0;padding:max(10px,env(safe-area-inset-top)) 12px 0;display:flex;gap:8px;align-items:center}
+#shelf .tabs{flex:1;margin:0}#shelf .x{position:static;font-size:28px;background:rgba(26,15,20,.8);border:2px solid #8A5A12;border-radius:12px;width:44px;height:44px}
+#shelf h2{position:absolute;left:0;right:0;top:calc(max(10px,env(safe-area-inset-top)) + 54px);text-align:center;font-family:Bungee,Impact,sans-serif;font-weight:400;color:var(--gold);font-size:26px;margin:0;text-shadow:0 3px 0 #8A2A12;pointer-events:none}
+#shelfInfo{position:absolute;left:16px;right:16px;bottom:max(18px,env(safe-area-inset-bottom));text-align:center;background:rgba(26,15,20,.85);border:2px solid #8A5A12;border-radius:14px;padding:12px;font-size:16px}
+#adOv{position:fixed;inset:0;z-index:12;background:#111;display:grid;place-items:center;text-align:center;color:#ddd;font-family:"DM Sans",system-ui,sans-serif}
+#adOv b{display:block;font-family:Bungee,Impact,sans-serif;font-weight:400;font-size:64px;color:#fff}#adOv small{display:block;opacity:.6;margin-top:8px;font-size:14px}
 .hidden{display:none!important}
 </style></head><body>
 <canvas id="cv"></canvas>
@@ -90,11 +121,14 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--sky);font-family
   <div class="pill hidden" id="hour">×2 <span id="hourT">20s</span></div>
 </div>
 <div class="side">
+  <button class="ibtn" id="bBooth" title="Booths">🎪<span class="dot hidden" id="boothDot"></span></button>
+  <button class="ibtn" id="bShelf" title="Prize shelf">🏆</button>
   <button class="ibtn" id="bAlbum" title="Collection">🧸<small id="albumN">0/8</small></button>
   <button class="ibtn" id="bMiss" title="Daily tasks">📋<small id="missN">0/3</small><span class="dot hidden" id="missDot"></span></button>
-  <button class="ibtn" id="bShop" title="Shop">🎟<span class="dot hidden" id="dailyDot"></span></button>
-  <button class="ibtn" id="bSound" title="Sound">🔊</button>
+  <button class="ibtn" id="bShop" title="Coin booth">🎟<span class="dot hidden" id="dailyDot"></span></button>
+  <button class="ibtn" id="bSet" title="Settings">⚙️</button>
 </div>
+<div id="coach" class="hidden"><p id="coachT"></p><div class="cr"><span id="coachN">1/5</span><button id="coachSkip">Skip tutorial</button></div></div><div id="tutArrow"></div>
 <div class="bottom">
   <button class="pw" id="bShake"><span>〰️</span>SHAKE<b id="shakeN">3</b></button>
   <button class="pw" id="bWall"><span>🧱</span>WALLS<b id="wallN">1</b></button>
@@ -102,16 +136,27 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--sky);font-family
 </div>
 <div id="toast"></div><div id="pops"></div><div id="combo">×0</div>
 <div id="card" class="hidden"><img id="cardImg" alt=""><div><em id="cardTag">NEW!</em><b id="cardName"></b><small id="cardSub"></small></div></div>
-<div class="modal hidden" id="album"><div class="panel"><button class="x" data-close>×</button><h2>PLUSH ALBUM</h2><div class="tabs" id="albumTabs"></div><p id="albumLine"></p><div class="grid" id="albumGrid"></div></div></div>
-<div class="modal hidden" id="shop"><div class="panel"><button class="x" data-close>×</button><h2>COIN BOOTH</h2><p>Free coins refill over time. Grab your daily bonus, or top up.</p>
+<div class="modal hidden" id="album"><div class="panel"><button class="x" data-close>×</button><h2>PLUSH ALBUM</h2><div class="tabs" id="albumTabs"></div><p id="albumLine"></p><div class="grid" id="albumGrid"></div><button class="btn" id="albumShelf">🏆 SEE THEM ON YOUR SHELF</button></div></div>
+<div class="modal hidden" id="shop"><div class="panel"><button class="x" data-close>×</button><h2>COIN BOOTH</h2><p>Free coins refill over time. Grab your daily bonus or watch a short ad.</p>
   <button class="btn" id="dailyBtn">Claim daily bonus</button>
-  <button class="pack" data-pack="150">Bag of coins · 150<em>€0,99</em></button>
-  <button class="pack" data-pack="500">Bucket of coins · 500<em>€2,99</em></button>
-  <button class="pack" data-pack="1500">Barrel of coins · 1.500<em>€6,99</em></button>
-  <div class="note">Prototype: packs are test buttons, no real payment. Coins can never be cashed out.</div></div></div>
+  <button class="pack" id="adBtn">📺 Watch a short ad</button>
+  <div class="sub">PRIZE STAND · NO LUCK NEEDED</div>
+  <div id="prizeBooth"></div>
+  <div class="fair"><b>Fair play:</b> coins can't be bought and can't be cashed out. Money only buys a specific plushie or early access to a booth, never a chance.</div>
+  <div class="note">Prototype: prices are test buttons, no real payment. The ad is a 5-second placeholder.</div></div></div>
+<div class="modal hidden" id="booths"><div class="panel"><button class="x" data-close>×</button><h2>BOOTHS</h2><p>Every booth has its own machine, rule and plushie set. Your board waits for you in each one.</p><div id="boothList"></div><div class="note">Now at: <span id="boothName"></span></div></div></div>
+<div class="modal hidden" id="settings"><div class="panel"><button class="x" data-close>×</button><h2>SETTINGS</h2>
+  <div class="setrow">Sound effects<button class="tg" data-set-k="sound">ON</button></div>
+  <div class="setrow">Music<button class="tg" data-set-k="music">ON</button></div>
+  <div class="setrow">Vibration<button class="tg" data-set-k="haptics">ON</button></div>
+  <div class="setrow">Graphics<div class="seg"><button data-q="auto">Auto</button><button data-q="high">High</button><button data-q="low">Low</button></div></div>
+  <button class="btn" id="tutReplay">Replay the tutorial</button>
+  <div class="note">Auto lowers resolution and shadows when your phone can't keep up.</div></div></div>
+<div id="shelf" class="hidden"><canvas id="shelfCv"></canvas><div class="sh-top"><div class="tabs" id="shelfTabs"></div><button class="x" id="shelfClose">×</button></div><div id="shelfInfo"></div></div>
+<div id="adOv" class="hidden"><div><small>AD · PROTOTYPE PLACEHOLDER</small><b id="adT">5</b><small>Your coins are on their way</small></div></div>
 <div class="modal hidden" id="missions"><div class="panel"><button class="x" data-close>×</button><h2>DAILY TASKS</h2><p>Three new tasks every day. Finish all three to grow your streak.</p><div id="missList"></div><div class="note" id="streakLine"></div></div></div>
 <div class="modal hidden" id="wheel"><div class="wheelbox"><h2>LUCKY WHEEL</h2><div class="wwrap"><canvas id="wheelCv" width="600" height="600"></canvas><div class="pointer"></div></div><div id="wheelRes"></div><button class="btn" id="spinBtn">SPIN!</button></div></div>
-<div class="modal hidden" id="out"><div class="panel"><button class="x" data-close>×</button><h2>OUT OF COINS</h2><p id="outLine"></p><button class="btn" id="outShop">Coin booth</button></div></div>
+<div class="modal hidden" id="out"><div class="panel"><button class="x" data-close>×</button><h2>OUT OF COINS</h2><p id="outLine"></p><button class="btn" id="outAd">📺 Watch an ad</button><button class="pack" id="outShop">Coin booth</button></div></div>
 <div id="loading">WARMING UP<br>THE MACHINE…</div>
 <script type="importmap">{"imports":{
   "three":"https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js",

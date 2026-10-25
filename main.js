@@ -1,4 +1,4 @@
-// SHOVE · Carnival coin pusher · prototype v0.4 (Three.js + Rapier)
+// SHOVE · Carnival coin pusher · prototype v0.5 (Three.js + Rapier)
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
@@ -28,10 +28,29 @@ const PLUSH = [
   { id: 'lion',     name: 'Leo',      col: 0xEDB247, ear: 'mane', set: 2 },
   { id: 'unicorn',  name: 'Sparkle',  col: 0xF7F1FA, ear: 'horn', set: 2 },
   { id: 'axolotl',  name: 'Mochi',    col: 0xF7A9C8, ear: 'gills', set: 2 },
+  { id: 'polar',    name: 'Frost',    col: 0xF4F6F8, ear: 'polar', set: 3 },
+  { id: 'reindeer', name: 'Dasher',   col: 0x9A6B45, ear: 'antlers', set: 3 },
+  { id: 'snowman',  name: 'Flurry',   col: 0xFBFCFF, ear: 'snowman', set: 3 },
+  { id: 'yeti',     name: 'Bigfoot',  col: 0xE9EEF5, ear: 'yeti', set: 3 },
+  { id: 'arcfox',   name: 'Nix',      col: 0xF1F3F6, ear: 'arctic', set: 3 },
+  { id: 'seal',     name: 'Blubber',  col: 0xA9B3BD, ear: 'seal', set: 3 },
+  { id: 'husky',    name: 'Sled',     col: 0x7E8794, ear: 'husky', set: 3 },
+  { id: 'ginger',   name: 'Crumbs',   col: 0xB8743E, ear: 'ginger', set: 3 },
 ];
 PLUSH.forEach(p => { p.set ||= 1; });
-const SETS = [{ id: 1, name: 'GARDEN PALS', lv: 1, bonus: 200 }, { id: 2, name: 'NIGHT MARKET', lv: 4, bonus: 300 }];
-const setUnlocked = s => save.level >= s.lv;
+const SETS = [{ id: 1, name: 'GARDEN PALS', lv: 1, bonus: 200 }, { id: 2, name: 'NIGHT MARKET', lv: 4, bonus: 300 }, { id: 3, name: 'WINTER FAIR', lv: 7, bonus: 400 }];
+// booths: each has its own board, look, rule and plush set
+const BOOTHS = [
+  { id: 'kermis', name: 'KERMIS', sign: 'SHOVE', set: 1, lv: 1, sky: [[0, '#1B0F2E'], [0.55, '#4A1C3A'], [1, '#C8553D']], fog: 0x2A1230, stripe: ['#D8343F', '#F6EBD5'], cab: 0xA51E2A, warm: 0xFF9A4D, pink: 0xFF5FA2,
+    rule: 'The classic. 3 lucky-ring hits give a wheel spin.', friction: 0.38, luckyNeed: 3, ringSpeed: 1 },
+  { id: 'night', name: 'NIGHT MARKET', sign: 'NIGHT MARKET', set: 2, lv: 4, sky: [[0, '#05081A'], [0.6, '#1A1448'], [1, '#6A2A6A']], fog: 0x120E30, stripe: ['#2B3A8F', '#F2C14E'], cab: 0x24307A, warm: 0xFFB04D, pink: 0x7A6BFF,
+    rule: 'Lantern hour: only 2 ring hits for a spin, but the ring swings faster.', friction: 0.38, luckyNeed: 2, ringSpeed: 1.5 },
+  { id: 'winter', name: 'WINTER FAIR', sign: 'WINTER FAIR', set: 3, lv: 7, sky: [[0, '#0B1E33'], [0.55, '#2E5A80'], [1, '#B9D6EA']], fog: 0x1E3A55, stripe: ['#2E8FB8', '#FFFFFF'], cab: 0x2B6C8E, warm: 0xBFE4FF, pink: 0xFF8FB0,
+    rule: 'Ice deck: coins slide much further. Bigger avalanches, but the gutters bite.', friction: 0.06, luckyNeed: 3, ringSpeed: 1 },
+];
+const booth = () => BOOTHS.find(b => b.id === save.booth) || BOOTHS[0];
+const setUnlocked = s => save.level >= s.lv || !!(save.unlocked && save.unlocked[s.id]);
+const boothOpen = B => setUnlocked(SETS[B.set - 1]);
 const WHEEL = [
   { id: 'rain15', label: '15 COINS', icon: '🪙', w: 22, col: '#D8343F', ink: '#F6EBD5' },
   { id: 'plush', label: 'PLUSHIE', icon: '🧸', w: 13, col: '#F6EBD5', ink: '#5A1020' },
@@ -54,12 +73,14 @@ const MPOOL = [
 // ---------- save ----------
 const STRESS = /[?&#]stress/.test(location.search + location.hash) || !!window.SHOVE_STRESS;
 const KEY = STRESS ? 'shove_stress_tmp' : 'shove_carnival_v1';
-const save = Object.assign({ coins: CFG.startCoins, lastRefill: Date.now(), xp: 0, level: 1, album: {}, shakes: 3, walls: 1, giants: 1, daily: '', dropped: 0, won: 0, sound: true, board: null, lucky: 0, spins: 0, missions: null, streak: 0, streakDay: '', setsDone: {} },
-  STRESS ? { coins: 1e6, sound: false, seenIntro: true, seenRing: true, board: null } : (() => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } })());
+const save = Object.assign({ coins: CFG.startCoins, lastRefill: Date.now(), xp: 0, level: 1, album: {}, shakes: 3, walls: 1, giants: 1, daily: '', dropped: 0, won: 0, sound: true, board: null, lucky: 0, spins: 0, missions: null, streak: 0, streakDay: '', setsDone: {}, booth: 'kermis', boards: {}, unlocked: {}, tut: 0, music: true, haptics: true, quality: 'auto', ads: { day: '', n: 0 } },
+  STRESS ? { coins: 1e6, sound: false, seenIntro: true, seenRing: true, board: null, tut: 99 } : (() => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } })());
 function persist() { if (STRESS) return; try { localStorage.setItem(KEY, JSON.stringify(save)); } catch (e) {} }
 const xpNeed = lv => 40 + lv * 25;
 if (save.setDone) save.setsDone[1] = true;
-const buzz = p => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} };
+if (save.board && !save.boards.kermis) { save.boards.kermis = save.board; } delete save.board;
+if (!save.tut && save.dropped > 40) save.tut = 99;   // v0.4 players already know the ropes
+const buzz = p => { if (!save.haptics) return; try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} };
 
 // ---------- audio ----------
 let AC = null, musicOn = false;
@@ -72,7 +93,7 @@ function clatter() { tone(900 + Math.random() * 500, 700, 0.05, 'triangle', 0.02
 const MEL = [67, 72, 76, 74, 72, 67, 69, 71, 72, 0, 64, 67, 72, 71, 69, 67, 65, 64, 62, 0, 67, 72, 76, 79, 77, 76, 74, 72, 71, 72];
 let mi = 0, nextNote = 0;
 function music() {
-  if (!musicOn || !save.sound || !AC) return;
+  if (!musicOn || !save.sound || !save.music || !AC) return;
   while (nextNote < AC.currentTime + 0.3) {
     const m = MEL[mi % MEL.length], t = nextNote - AC.currentTime;
     if (m) { const f = 440 * Math.pow(2, (m - 69) / 12); tone(f, f, 0.32, 'square', 0.012, Math.max(0, t)); tone(f * 2, f * 2, 0.2, 'sine', 0.008, Math.max(0, t)); }
@@ -131,7 +152,7 @@ function coinFaceTex(base, hi, lo, star) {
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
 }
 function stripeTex(a, b, n = 8) { const c = document.createElement('canvas'); c.width = 256; c.height = 64; const x = c.getContext('2d'); for (let i = 0; i < n; i++) { x.fillStyle = i % 2 ? b : a; x.fillRect(i * 256 / n, 0, 256 / n, 64); } const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; }
-function signTex() { const c = document.createElement('canvas'); c.width = 512; c.height = 128; const x = c.getContext('2d'); x.fillStyle = '#2A0E16'; x.fillRect(0, 0, 512, 128); x.font = '900 86px Bungee, Impact, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#8A5A12'; x.fillText('SHOVE', 256, 70); x.fillStyle = '#FFD25A'; x.fillText('SHOVE', 256, 64); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; }
+function signTex(text = 'SHOVE', bg = '#2A0E16') { const c = document.createElement('canvas'); c.width = 512; c.height = 128; const x = c.getContext('2d'); x.fillStyle = bg; x.fillRect(0, 0, 512, 128); let fs = 86; x.font = `900 ${fs}px Bungee, Impact, sans-serif`; while (x.measureText(text).width > 470 && fs > 30) { fs -= 4; x.font = `900 ${fs}px Bungee, Impact, sans-serif`; } x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#8A5A12'; x.fillText(text, 256, 70); x.fillStyle = '#FFD25A'; x.fillText(text, 256, 64); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; }
 M.goldFace = new THREE.MeshStandardMaterial({ map: coinFaceTex('#E3AA34', '#FFE7A0', '#8A5A12'), metalness: 1, roughness: 0.32 });
 M.starFace = new THREE.MeshStandardMaterial({ map: coinFaceTex('#D02A3C', '#FF8A96', '#5A0A14', '#FFD25A'), metalness: 0.35, roughness: 0.35, emissive: 0x3A0510 });
 const tint = (col, golden, mat) => golden ? mat : new THREE.MeshStandardMaterial({ color: col, roughness: 0.92 });
@@ -160,13 +181,27 @@ const bulbs = [];
 const bulbGeo = new THREE.SphereGeometry(0.1, 10, 8);
 for (let i = 0; i < 18; i++) { const b = new THREE.Mesh(bulbGeo, M.bulbOn); const a = i / 17; b.position.set(-3.3 + a * 6.6, 5.0, -7.1); scene.add(b); bulbs.push(b); }
 for (let i = 0; i < 18; i++) { const b = new THREE.Mesh(bulbGeo, M.bulbOn); const a = i / 17; b.position.set(-3.3 + a * 6.6, 3.2, -7.1); scene.add(b); bulbs.push(b); }
+// booth decor groups
+const decoK = new THREE.Group(), decoN = new THREE.Group(), decoW = new THREE.Group(); scene.add(decoK, decoN, decoW);
 // string lights over the fair
-for (let s = 0; s < 3; s++) for (let i = 0; i < 26; i++) { const a = i / 25, x = -14 + a * 28, y = 9 + s * 2.2 - Math.sin(a * Math.PI) * 1.6; const b = new THREE.Mesh(bulbGeo, new THREE.MeshBasicMaterial({ color: [0xFFE38A, 0xFF7A8A, 0x8AE8FF][i % 3] })); b.position.set(x, y, -16 - s * 4); b.scale.setScalar(1.6); scene.add(b); bulbs.push(b); }
+for (let s = 0; s < 3; s++) for (let i = 0; i < 26; i++) { const a = i / 25, x = -14 + a * 28, y = 9 + s * 2.2 - Math.sin(a * Math.PI) * 1.6; const b = new THREE.Mesh(bulbGeo, new THREE.MeshBasicMaterial({ color: [0xFFE38A, 0xFF7A8A, 0x8AE8FF][i % 3] })); b.position.set(x, y, -16 - s * 4); b.scale.setScalar(1.6); decoK.add(b); }
 // ferris wheel silhouette
-const wheel = new THREE.Group(); wheel.position.set(-13, 9, -30); scene.add(wheel);
+const wheel = new THREE.Group(); wheel.position.set(-13, 9, -30); decoK.add(wheel);
 { const ringM = new THREE.MeshBasicMaterial({ color: 0x3A1E4A }); const ring = new THREE.Mesh(new THREE.TorusGeometry(7, 0.15, 6, 48), ringM); wheel.add(ring);
   for (let i = 0; i < 12; i++) { const sp = new THREE.Mesh(new THREE.BoxGeometry(0.12, 14, 0.12), ringM); sp.rotation.z = i / 12 * Math.PI; wheel.add(sp); const l = new THREE.Mesh(bulbGeo, new THREE.MeshBasicMaterial({ color: i % 2 ? 0xFFE38A : 0xFF6FA8 })); l.scale.setScalar(2.2); l.position.set(Math.cos(i / 12 * Math.PI * 2) * 7, Math.sin(i / 12 * Math.PI * 2) * 7, 0.2); wheel.add(l); }
-  const leg = new THREE.Mesh(new THREE.BoxGeometry(0.3, 10, 0.3), ringM); leg.position.set(-2.5, -4.5, 0); leg.rotation.z = 0.28; scene.add(leg); leg.position.add(wheel.position); const leg2 = leg.clone(); leg2.position.x = wheel.position.x + 2.5; leg2.rotation.z = -0.28; scene.add(leg2); }
+  const leg = new THREE.Mesh(new THREE.BoxGeometry(0.3, 10, 0.3), ringM); leg.position.set(-2.5, -4.5, 0); leg.rotation.z = 0.28; decoK.add(leg); leg.position.add(wheel.position); const leg2 = leg.clone(); leg2.position.x = wheel.position.x + 2.5; leg2.rotation.z = -0.28; decoK.add(leg2); }
+// night market: paper lanterns + moon
+{ const cols = [0xFF5A3D, 0xFFB03D, 0xFF7A9A, 0xFFD25A];
+  for (let s = 0; s < 3; s++) for (let i = 0; i < 14; i++) { const a = i / 13, x = -14 + a * 28, y = 9.5 + s * 2.4 - Math.sin(a * Math.PI) * 1.4; const l = new THREE.Mesh(new THREE.SphereGeometry(0.42, 14, 10), new THREE.MeshBasicMaterial({ color: cols[(i + s) % 4] })); l.scale.set(1, 1.25, 1); l.position.set(x, y, -16 - s * 4); decoN.add(l); }
+  const moon = new THREE.Mesh(new THREE.SphereGeometry(3, 24, 16), new THREE.MeshBasicMaterial({ color: 0xFFF3C8 })); moon.position.set(13, 15, -45); decoN.add(moon);
+  const stallM = new THREE.MeshBasicMaterial({ color: 0x0E0A24 }); for (let i = 0; i < 6; i++) { const st = new THREE.Mesh(new THREE.ConeGeometry(2.4, 2.2, 4), stallM); st.position.set(-16 + i * 6.4, 2.2, -28); st.rotation.y = Math.PI / 4; decoN.add(st); const bx = new THREE.Mesh(new THREE.BoxGeometry(3.2, 2.6, 2), stallM); bx.position.set(-16 + i * 6.4, 0, -28); decoN.add(bx); } }
+// winter fair: pines + falling snow
+const snowGeo = new THREE.BufferGeometry(), SN = 700, snowPos = new Float32Array(SN * 3);
+for (let i = 0; i < SN; i++) { snowPos[i * 3] = (Math.random() - 0.5) * 34; snowPos[i * 3 + 1] = Math.random() * 22; snowPos[i * 3 + 2] = -34 + Math.random() * 44; }
+snowGeo.setAttribute('position', new THREE.BufferAttribute(snowPos, 3));
+const snow = new THREE.Points(snowGeo, new THREE.PointsMaterial({ color: 0xFFFFFF, size: 0.16, transparent: true, opacity: 0.85, depthWrite: false })); decoW.add(snow);
+{ const pine = new THREE.MeshBasicMaterial({ color: 0x0F2A3A }), cap = new THREE.MeshBasicMaterial({ color: 0xDDEBF5 });
+  for (let i = 0; i < 9; i++) { const x = -18 + i * 4.5, h = 5 + (i % 3) * 1.6, z = -26 - (i % 2) * 5; const t = new THREE.Mesh(new THREE.ConeGeometry(1.6, h, 7), pine); t.position.set(x, h / 2 - 0.5, z); decoW.add(t); const c = new THREE.Mesh(new THREE.ConeGeometry(0.7, h * 0.3, 7), cap); c.position.set(x, h * 0.85 - 0.5, z); decoW.add(c); } }
 // pusher (visual)
 const pusherMesh = new THREE.Group(); scene.add(pusherMesh);
 box(W * 2 - 0.04, CFG.deckY, CFG.pushHalfZ * 2, M.chrome, 0, CFG.deckY / 2, 0, pusherMesh, 0.05);
@@ -179,12 +214,12 @@ const ringMat = new THREE.MeshStandardMaterial({ color: 0xFFD25A, emissive: 0xFF
 const ring = new THREE.Mesh(new THREE.TorusGeometry(0.58, 0.075, 12, 40), ringMat); ring.rotation.x = Math.PI / 2; scene.add(ring);
 const ringBulbs = []; for (let i = 0; i < 8; i++) { const b = new THREE.Mesh(bulbGeo, M.bulbOn); b.scale.setScalar(0.7); const a = i / 8 * Math.PI * 2; b.position.set(Math.cos(a) * 0.58, Math.sin(a) * 0.58, -0.06); ring.add(b); ringBulbs.push(b); }
 const lampOff = new THREE.MeshStandardMaterial({ color: 0x5A2A20, roughness: 0.4 }), lampOn = new THREE.MeshBasicMaterial({ color: 0xFFE38A });
-const lamps = [-1.1, 0, 1.1].map(x => { const l = new THREE.Mesh(new THREE.SphereGeometry(0.24, 18, 12), lampOff); l.position.set(x, CFG.deckY + 1.72, -5.17); scene.add(l); const rim = new THREE.Mesh(new THREE.TorusGeometry(0.27, 0.05, 8, 24), M.chrome); rim.position.copy(l.position); scene.add(rim); return l; });
+const lamps = [-1.1, 0, 1.1].map(x => { const l = new THREE.Mesh(new THREE.SphereGeometry(0.24, 18, 12), lampOff); l.position.set(x, CFG.deckY + 1.72, -5.17); scene.add(l); const rim = new THREE.Mesh(new THREE.TorusGeometry(0.27, 0.05, 8, 24), M.chrome); rim.position.copy(l.position); scene.add(rim); l.userData.rim = rim; return l; });
 let ringT = 0, ringFlash = 0;
 const ringX = (t = ringT) => 3.0 * Math.sin(t * 1.6 + 0.7 * Math.sin(t * 0.47));
 
 // ---------- physics ----------
-let world, pusherBody, wallColliders = [];
+let world, pusherBody, wallColliders = [], floorCol;
 const coins = [];   // {body, giant}
 const prizes = [];  // {body, mesh, kind, golden}
 let coinMesh, giantMesh, starMesh;
@@ -229,6 +264,19 @@ function buildPlush(kind, golden) {
     const mc = [0xF59FC8, 0xB9A4F5, 0x8FD8F0]; for (let i = 0; i < 5; i++) mk(0.11, 0, 1.42 - i * 0.14, -0.3 - Math.sin(i / 4 * Math.PI) * 0.06, A(mc[i % 3])); mk(0.12, 0, 1.0, 0.36, A(0xF9DCEB), 1.1, 0.8, 0.9); }
   if (P.ear === 'gills') { const gm = A(0xE5487A); for (const sx of [-1, 1]) for (let i = 0; i < 3; i++) { const gl = mk(0.06, sx * (0.4 + Math.abs(i - 1) * 0.03), 1.08 + (i - 1) * 0.15, -0.02, gm, 2.4, 0.7, 0.7); gl.rotation.z = sx * (i - 1) * 0.5; }
     mk(0.025, -0.08, 0.98, 0.4, M.black); mk(0.025, 0.08, 0.98, 0.4, M.black); }
+  if (P.ear === 'polar') { mk(0.13, -0.3, 1.4, 0); mk(0.13, 0.3, 1.4, 0); mk(0.14, 0, 1.0, 0.36, A(0xFFFFFF), 1.2, 0.85, 0.9); mk(0.05, 0, 1.04, 0.49, M.black); }
+  if (P.ear === 'antlers') { const an = A(0xE8D6B0); for (const sx of [-1, 1]) { const st = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.05, 0.42, 6), an); st.position.set(sx * 0.2, 1.58, -0.02); st.rotation.z = -sx * 0.35; g.add(st);
+      for (const k of [0, 1]) { const tn = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.035, 0.2, 6), an); tn.position.set(sx * (0.25 + k * 0.06), 1.6 + k * 0.12, -0.02); tn.rotation.z = -sx * (1.1 + k * 0.2); g.add(tn); } mk(0.09, sx * 0.36, 1.32, 0, mat, 1.5, 0.6, 0.6); }
+    mk(0.13, 0, 1.0, 0.36, A(0xD9B48A), 1.15, 0.85, 0.9); mk(0.065, 0, 1.03, 0.48, A(0xE0302E)); }
+  if (P.ear === 'snowman') { const hat = A(0x1C1C22); const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.05, 20), hat); brim.position.set(0, 1.4, 0.03); g.add(brim); const top = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.24, 0.32, 20), hat); top.position.set(0, 1.58, 0.03); g.add(top);
+    const nose = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.3, 10), A(0xF07A22)); nose.rotation.x = Math.PI / 2; nose.position.set(0, 1.04, 0.56); g.add(nose); for (let i = 0; i < 3; i++) mk(0.045, 0, 0.75 - i * 0.2, 0.45 - Math.abs(i - 1) * 0.02, A(0x1C1C22));
+    const sc = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.08, 8, 20), A(0xD8343F)); sc.rotation.x = Math.PI / 2; sc.position.set(0, 0.86, 0.04); g.add(sc); }
+  if (P.ear === 'yeti') { for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2; mk(0.12, Math.cos(a) * 0.36, 1.12 + Math.sin(a) * 0.36, -0.05, mat); } mk(0.27, 0, 1.04, 0.2, A(0x8FB4D8), 1.05, 0.95, 0.75); mk(0.05, -0.06, 0.92, 0.42, A(0xFFFFFF)); mk(0.05, 0.06, 0.92, 0.42, A(0xFFFFFF)); }
+  if (P.ear === 'arctic') { ears2(mat); mk(0.15, 0, 0.98, 0.33, A(0xFFFFFF), 1.2, 0.8, 1); mk(0.04, 0, 1.0, 0.47, M.black); }
+  if (P.ear === 'seal') { mk(0.15, 0, 1.0, 0.34, A(0xD2D8DE), 1.25, 0.8, 0.9); mk(0.05, 0, 1.05, 0.47, M.black); for (const sx of [-1, 1]) { mk(0.14, sx * 0.5, 0.35, 0.18, mat, 0.6, 0.35, 1.3); for (let k = 0; k < 2; k++) { const w = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.22, 4), A(0xFFFFFF)); w.rotation.z = Math.PI / 2 + sx * (k - 0.5) * 0.4; w.position.set(sx * 0.2, 0.99 + (k - 0.5) * 0.04, 0.44); g.add(w); } } }
+  if (P.ear === 'husky') { ears2(mat); mk(0.26, 0, 1.0, 0.2, A(0xFFFFFF), 1.1, 0.8, 0.8); mk(0.04, 0, 1.0, 0.47, M.black); for (const sx of [-1, 1]) mk(0.03, sx * 0.14, 1.15, 0.43, A(0x6BC5F0)); }
+  if (P.ear === 'ginger') { const ic = A(0xFFFFFF); for (let i = 0; i < 3; i++) mk(0.05, 0, 0.75 - i * 0.18, 0.44, A([0xD8343F, 0x3FA34D, 0xD8343F][i])); for (const sx of [-1, 1]) { const bd = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.018, 6, 14, Math.PI), ic); bd.position.set(sx * 0.48, 0.5, 0.2); bd.rotation.z = Math.PI; g.add(bd); }
+    const sm = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.02, 6, 14, Math.PI), ic); sm.position.set(0, 1.0, 0.4); sm.rotation.z = Math.PI; g.add(sm); }
   // arms + feet
   mk(0.16, -0.48, 0.6, 0.12, mat, 1, 1.3, 1); mk(0.16, 0.48, 0.6, 0.12, mat, 1, 1.3, 1); mk(0.17, -0.22, 0.12, 0.3, mat); mk(0.17, 0.22, 0.12, 0.3, mat);
   g.traverse(o => { if (o.isMesh) o.castShadow = true; });
@@ -263,14 +311,15 @@ function addPrizeScaled(kind, golden, x, y, z, rot = null) {
   const mesh = buildPlush(kind, golden); mesh.scale.setScalar(s); scene.add(mesh);
   prizes.push({ body: b, mesh, kind, golden });
 }
-function randomPrize() { const pool = PLUSH.filter(p => setUnlocked(SETS[p.set - 1])); const p = pool[Math.floor(Math.random() * pool.length)]; return [p.id, Math.random() < 0.1]; }
+function randomPrize() { const pool = PLUSH.filter(p => p.set === booth().set); const p = pool[Math.floor(Math.random() * pool.length)]; return [p.id, Math.random() < 0.1]; }
 let pushT = 0;
 function pusherZ() { return CFG.pushBack + (CFG.pushFwd - CFG.pushBack) * (0.5 - 0.5 * Math.cos(pushT * CFG.pushSpeed)); }
 function initWorld() {
   world = new RAPIER.World({ x: 0, y: -22, z: 0 });
   world.timestep = 1 / 60;
   const fixed = (hx, hy, hz, x, y, z, fr = 0.35) => world.createCollider(RAPIER.ColliderDesc.cuboid(hx, hy, hz).setTranslation(x, y, z).setFriction(fr));
-  fixed(W, 0.15, 6.2, 0, -0.15, CFG.front - 6.2);                 // floor up to the front edge
+  floorCol = fixed(W, 0.15, 6.2, 0, -0.15, CFG.front - 6.2);      // floor up to the front edge
+  floorCol.setFrictionCombineRule(RAPIER.CoefficientCombineRule.Min); floorCol.setFriction(booth().friction);
   for (const sx of [-1, 1]) fixed(0.15, 2, (CFG.gutterFrom + 8) / 2, sx * (W + 0.15), 1.5, (CFG.gutterFrom - 8) / 2); // side walls back part
   fixed(W, 1.1, 0.15, 0, CFG.deckY + 1.13, -5.35);                // wall over the deck
   fixed(W, 2, 0.2, 0, 1.5, -8.3);                                 // far back stop
@@ -279,10 +328,11 @@ function initWorld() {
   world.createCollider(RAPIER.ColliderDesc.cuboid(W - 0.02, CFG.deckY / 2, CFG.pushHalfZ).setFriction(0.5), pusherBody);
 }
 function fillBoard() {
-  if (save.board && save.board.c && save.board.c.length > 40) {
-    for (const c of save.board.c) addCoin(c[0], c[1], c[2], +c[7] || 0, { x: c[3], y: c[4], z: c[5], w: c[6] });
-    for (const p of save.board.p || []) addPrizeScaled(p[0], p[1], p[2], p[3], p[4], { x: p[5], y: p[6], z: p[7], w: p[8] });
-    pushT = save.board.t || 0; return false;
+  const bd = save.boards[save.booth];
+  if (bd && bd.c && bd.c.length > 40) {
+    for (const c of bd.c) addCoin(c[0], c[1], c[2], +c[7] || 0, { x: c[3], y: c[4], z: c[5], w: c[6] });
+    for (const p of bd.p || []) if (PLUSH.find(x => x.id === p[0])) addPrizeScaled(p[0], p[1], p[2], p[3], p[4], { x: p[5], y: p[6], z: p[7], w: p[8] });
+    pushT = bd.t || 0; return false;
   }
   // a packed tray with piles, like a machine that's been running all day
   for (let i = 0; i < 165; i++) addCoin(-3.5 + Math.random() * 7, 0.12 + Math.floor(i / 80) * 0.18 + Math.random() * 0.12, -2.3 + Math.random() * 6.9);
@@ -295,7 +345,7 @@ function saveBoard() {
   if (STRESS) return;
   const c = coins.map(({ body, type }) => { const t = body.translation(), r = body.rotation(); return [t.x, t.y, t.z, r.x, r.y, r.z, r.w, type].map(v => typeof v === 'number' ? +v.toFixed(3) : v); });
   const p = prizes.map(({ body, kind, golden }) => { const t = body.translation(), r = body.rotation(); return [kind, golden, +t.x.toFixed(3), +t.y.toFixed(3), +t.z.toFixed(3), r.x, r.y, r.z, r.w]; });
-  save.board = { c, p, t: pushT }; persist();
+  save.boards[save.booth] = { c, p, t: pushT }; persist();
 }
 
 // ---------- game ----------
@@ -334,7 +384,7 @@ function gainXP(n) {
   save.xp += n;
   while (save.xp >= xpNeed(save.level)) { save.xp -= xpNeed(save.level); save.level++; save.coins += 20; save.shakes++; if (save.level % 2 === 0) save.walls++; if (save.level % 3 === 0) save.giants++;
     toast(`⭐ Level ${save.level}! +20 coins, +1 shake${save.level % 2 === 0 ? ', +1 wall' : ''}${save.level % 3 === 0 ? ', +1 giant coin' : ''}`); tone(523, 1046, 0.3, 'triangle', 0.07); tone(784, 1568, 0.35, 'triangle', 0.06, 0.12); buzz([30, 40, 30]);
-    const s = SETS.find(x => x.lv === save.level); if (s && s.lv > 1) toast(`🌙 New set unlocked: ${s.name}! New plushies are in the machine.`, 3.5); }
+    const nb = BOOTHS.find(x => x.lv === save.level); if (nb && nb.lv > 1) { toast(`🎪 New booth open: ${nb.name}! Tap 🎪 to walk over.`, 4); $('boothDot').classList.remove('hidden'); } }
 }
 // combo: coins tumbling off in a burst
 let combo = 0, comboT = 0, comboBest = 0;
@@ -354,12 +404,10 @@ function collectPrize(p) {
   const P = PLUSH.find(x => x.id === p.kind);
   showCard(P, p.golden, first);
   tone(784, 1175, 0.2, 'triangle', 0.07); tone(1175, 1568, 0.3, 'triangle', 0.06, 0.15); buzz([40, 50, 80]);
-  for (const S of SETS) { const done = PLUSH.filter(x => x.set === S.id).every(x => save.album[x.id] || save.album[x.id + '_gold']);
-    if (done && !save.setsDone[S.id]) { save.setsDone[S.id] = true; save.coins += S.bonus; toast(`🏆 ${S.name} set complete! +${S.bonus} coins`, 4); } }
-  persist(); hud();
+  checkSets(); persist(); hud();
 }
 function luckyHit() { ringFlash = 0.6; save.lucky = (save.lucky || 0) + 1; mission('lucky'); popup('LUCKY!', 'lucky'); tone(880, 1760, 0.15, 'square', 0.04); tone(1320, 2640, 0.2, 'triangle', 0.04, 0.08); buzz(25);
-  if (save.lucky >= CFG.luckyNeed) { save.lucky = 0; queueSpin(); }
+  if (save.lucky >= booth().luckyNeed) { save.lucky = 0; queueSpin(); }
   hud(); persist(); }
 // ---------- lucky wheel ----------
 let wheelRot = 0, spinning = false, pendingSpins = 0, wheelOpen = false;
@@ -424,6 +472,117 @@ function claimMission(i) {
   }
   persist(); hud(); openModal('missions');
 }
+// ---------- booths ----------
+function applyBooth() {
+  const B = booth();
+  scene.background = gradientTex(B.sky); scene.fog.color.setHex(B.fog);
+  aw.material.map = stripeTex(B.stripe[0], B.stripe[1], 12); aw.material.needsUpdate = true;
+  sign.material.map = signTex(B.sign); sign.material.needsUpdate = true;
+  M.red.color.setHex(B.cab); warm.color.setHex(B.warm); pink.color.setHex(B.pink);
+  decoK.visible = B.id === 'kermis'; decoN.visible = B.id === 'night'; decoW.visible = B.id === 'winter';
+  if (floorCol) floorCol.setFriction(B.friction);
+  document.body.dataset.booth = B.id;
+}
+function clearBoard() {
+  for (const c of coins) world.removeRigidBody(c.body); coins.length = 0;
+  for (const p of prizes) { world.removeRigidBody(p.body); scene.remove(p.mesh); } prizes.length = 0;
+  rainQ = 0; combo = 0;
+}
+function warmBoard() { for (let i = 0; i < 420; i++) { pushT += 1 / 60; pusherBody.setNextKinematicTranslation({ x: 0, y: CFG.deckY / 2, z: pusherZ() }); world.step(); }
+  for (let i = coins.length - 1; i >= 0; i--) if (coins[i].body.translation().y < -0.5) { world.removeRigidBody(coins[i].body); coins.splice(i, 1); } }
+function switchBooth(id) {
+  const B = BOOTHS.find(b => b.id === id); if (!B || id === save.booth || !boothOpen(B)) return;
+  saveBoard(); $('loading').innerHTML = `WALKING TO THE<br>${B.name}…`; $('loading').classList.remove('hidden');
+  setTimeout(() => { clearBoard(); save.booth = id; save.lucky = 0; applyBooth(); if (fillBoard()) warmBoard(); persist(); hud(); $('loading').classList.add('hidden'); toast(`🎪 ${B.name}: ${B.rule}`, 4); tone(523, 784, 0.25, 'triangle', 0.05); }, 60);
+}
+// ---------- coin booth: no paid chance ----------
+// Coins can't be bought. Money only buys things without randomness: a specific plushie, or early access to a booth.
+const AD_COINS = 30, AD_MAX = 5;
+function adsLeft() { if (save.ads.day !== today()) save.ads = { day: today(), n: 0 }; return AD_MAX - save.ads.n; }
+function watchAd() {
+  if (adsLeft() <= 0) return; const ov = $('adOv'); ov.classList.remove('hidden'); let t = 5; $('adT').textContent = t;
+  const iv = setInterval(() => { t--; $('adT').textContent = t; if (t <= 0) { clearInterval(iv); ov.classList.add('hidden'); save.ads.n++; save.coins += AD_COINS; persist(); hud(); toast(`📺 +${AD_COINS} coins. Thanks for watching!`); tone(660, 1320, 0.3, 'triangle', 0.07); buzz(30); if (!$('shop').classList.contains('hidden')) openModal('shop'); if (!$('out').classList.contains('hidden')) openModal('out'); } }, 1000);
+}
+function buyPlush(id) { const P = PLUSH.find(p => p.id === id); if (!P || save.album[id]) return; save.album[id] = 1; mission('plush'); showCard(P, false, true); checkSets(); persist(); hud(); toast(`TEST purchase: ${P.name} added (no payment)`); openModal('shop'); }
+function buyBooth(id) { const B = BOOTHS.find(b => b.id === id); if (!B) return; save.unlocked[B.set] = true; persist(); toast(`TEST purchase: ${B.name} unlocked (no payment)`); openModal('booths'); hud(); }
+function checkSets() { for (const S of SETS) { const done = PLUSH.filter(x => x.set === S.id).every(x => save.album[x.id] || save.album[x.id + '_gold']);
+  if (done && !save.setsDone[S.id]) { save.setsDone[S.id] = true; save.coins += S.bonus; toast(`🏆 ${S.name} set complete! +${S.bonus} coins`, 4); } } }
+// ---------- onboarding ----------
+const vtmp = new THREE.Vector3();
+function proj(x, y, z) { vtmp.set(x, y, z).project(camera); return [(vtmp.x + 1) / 2 * innerWidth, (1 - vtmp.y) / 2 * innerHeight]; }
+const TUT = [
+  { t: 'Tap the machine to drop a coin.', at: () => proj(0, CFG.dropY, CFG.dropZ), done: b => save.dropped >= b.d + 1 },
+  { t: 'Nice! Coins land on the moving shelf and get shoved forward. Now <b>hold your finger down</b> to keep dropping.', at: () => proj(aimX, CFG.dropY, CFG.dropZ), done: b => save.dropped >= b.d + 7 },
+  { t: 'Everything that falls off the <b>front edge</b> is yours. The sides are gutters.', at: () => proj(0, 0, CFG.front + 0.2), done: (b, t) => save.won > b.w || t > 8 },
+  { t: '🎯 Drop a coin <b>through the moving ring</b> to light a lamp. Light them all for a wheel spin.', at: () => proj(ringX(), CFG.ringY + 0.4, CFG.dropZ), done: (b, t) => save.lucky > b.l || save.spins > b.s || t > 14 },
+  { t: 'Every 25 coins a plushie drops in. Push it off and it lands on your <b>Prize Shelf</b>.', at: () => { const r = $('bShelf').getBoundingClientRect(); return [r.left - 6, r.top + r.height / 2, 'left']; }, done: (b, t) => t > 6 },
+];
+let tutBase = null, tutT = 0;
+function tutStep() {
+  if (save.tut >= TUT.length || STRESS) { $('coach').classList.add('hidden'); return; }
+  const st = TUT[save.tut];
+  if (!tutBase) { tutBase = { d: save.dropped, w: save.won, l: save.lucky, s: save.spins }; tutT = performance.now(); $('coachT').innerHTML = st.t; $('coachN').textContent = `${save.tut + 1}/${TUT.length}`; $('coach').classList.remove('hidden'); }
+  if (st.done(tutBase, (performance.now() - tutT) / 1000)) { save.tut++; tutBase = null; persist(); if (save.tut >= TUT.length) { $('coach').classList.add('hidden'); toast("You're a natural. Have fun at the fair!"); save.tut = 99; persist(); } }
+}
+function tutArrow() { if (save.tut >= TUT.length || $('coach').classList.contains('hidden')) return; const p = TUT[save.tut].at(); const a = $('tutArrow'); a.style.left = p[0] + 'px'; a.style.top = p[1] + 'px'; a.className = p[2] === 'left' ? 'left' : ''; }
+// ---------- prize shelf (3D vitrine) ----------
+let shelfR = null, shelfS, shelfC, shelfG = null, shelfOpen = false, shelfSet = 1, shelfRot = 0, shelfDrag = null, shelfPick = null, shelfItems = [], shelfT0 = 0;
+M.sil = new THREE.MeshStandardMaterial({ color: 0x1A0F14, roughness: 1, transparent: true, opacity: 0.55 });
+M.wood = new THREE.MeshStandardMaterial({ color: 0x6B3A24, roughness: 0.7 });
+M.velvet = new THREE.MeshStandardMaterial({ color: 0x5A1020, roughness: 1 });
+function labelTex(text, sub) { const c = document.createElement('canvas'); c.width = 512; c.height = 96; const x = c.getContext('2d'); x.fillStyle = '#F6EBD5'; x.fillRect(0, 0, 512, 96); x.fillStyle = '#D8343F'; x.fillRect(0, 0, 512, 8); x.fillRect(0, 88, 512, 8);
+  x.fillStyle = '#1A0F14'; x.font = '900 40px Bungee, Impact, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(text, 256, sub ? 40 : 50); if (sub) { x.font = '700 22px "DM Sans", system-ui, sans-serif'; x.fillText(sub, 256, 74); } const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; }
+function buildShelf() {
+  if (!shelfR) { shelfR = new THREE.WebGLRenderer({ canvas: $('shelfCv'), antialias: true }); shelfR.setPixelRatio(Math.min(2, devicePixelRatio || 1)); shelfR.outputColorSpace = THREE.SRGBColorSpace; shelfR.toneMapping = THREE.ACESFilmicToneMapping;
+    shelfS = new THREE.Scene(); shelfS.background = gradientTex([[0, '#1B0F2E'], [1, '#4A1C3A']]); const pm = new THREE.PMREMGenerator(shelfR); shelfS.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture; shelfS.environmentIntensity = 0.6;
+    shelfS.add(new THREE.HemisphereLight(0xFFE7C2, 0x2A1230, 0.7)); const sp = new THREE.SpotLight(0xFFF1D6, 60, 30, 0.6, 0.5); sp.position.set(0, 8, 9); shelfS.add(sp); shelfS.add(sp.target);
+    shelfC = new THREE.PerspectiveCamera(36, 1, 0.1, 100); }
+  if (shelfG) { shelfS.remove(shelfG); shelfG.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
+  shelfG = new THREE.Group(); shelfS.add(shelfG); shelfItems = [];
+  const S = SETS[shelfSet - 1], open = setUnlocked(S), list = PLUSH.filter(p => p.set === S.id);
+  const bx = (w, h, d, m, x, y, z) => { const o = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 2, 0.05), m); o.position.set(x, y, z); shelfG.add(o); return o; };
+  bx(5.6, 6.4, 0.3, M.velvet, 0, 0.6, -1.0); bx(0.3, 6.8, 2.2, M.wood, -2.95, 0.6, 0); bx(0.3, 6.8, 2.2, M.wood, 2.95, 0.6, 0); bx(6.2, 0.35, 2.4, M.wood, 0, 4.1, 0); bx(6.2, 0.4, 2.4, M.wood, 0, -2.8, 0);
+  for (const y of [-0.9, 1.6]) { const g = new THREE.Mesh(new THREE.BoxGeometry(5.6, 0.06, 1.9), new THREE.MeshPhysicalMaterial({ color: 0xffffff, transparent: true, opacity: 0.25, roughness: 0.05 })); g.position.set(0, y, 0); shelfG.add(g); }
+  for (let i = 0; i < 12; i++) { const b = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), M.bulbOn); b.position.set(-2.6 + i * 0.47, 3.85, 1.05); shelfG.add(b); }
+  const have = list.filter(p => save.album[p.id] || save.album[p.id + '_gold']).length;
+  const lab = new THREE.Mesh(new THREE.PlaneGeometry(4.4, 0.82), new THREE.MeshBasicMaterial({ map: labelTex(S.name, open ? `${have}/8 collected${save.setsDone[S.id] ? ' · COMPLETE' : ''}` : `unlocks at level ${S.lv}`) })); lab.position.set(0, 4.75, 0.4); shelfG.add(lab);
+  list.forEach((p, i) => { const n = save.album[p.id] || 0, g = save.album[p.id + '_gold'] || 0, got = n || g;
+    const m = buildPlush(p.id, !!g); if (!got) m.traverse(o => { if (o.isMesh) o.material = M.sil; });
+    const row = i < 4 ? 1 : 0, col = i % 4; m.scale.setScalar(0.62); m.position.set(-2.0 + col * 1.33, row ? 1.66 : -0.84, 0.15); m.rotation.y = -0.15 + (col - 1.5) * -0.12; shelfG.add(m);
+    shelfItems.push({ m, p, n, g, got, y0: m.position.y, hop: 0 }); });
+}
+function openShelf(set) { shelfSet = set || booth().set; shelfOpen = true; $('shelf').classList.remove('hidden'); shelfTabs(); buildShelf(); resizeShelf(); shelfRot = 0.35; shelfT0 = performance.now(); $('shelfInfo').textContent = 'Drag to turn · tap a plushie'; requestAnimationFrame(shelfFrame); }
+function shelfTabs() { $('shelfTabs').innerHTML = SETS.map(x => `<button data-set="${x.id}" class="${x.id === shelfSet ? 'on' : ''}">${x.name}${setUnlocked(x) ? '' : ' 🔒'}</button>`).join('');
+  $('shelfTabs').querySelectorAll('button').forEach(b => b.onclick = () => { shelfSet = +b.dataset.set; shelfTabs(); buildShelf(); shelfRot = 0.3; }); }
+function resizeShelf() { const w = innerWidth, h = innerHeight; shelfR.setSize(w, h, false); shelfC.aspect = w / h; const t = Math.tan(THREE.MathUtils.degToRad(18)), dist = Math.max(4.4 / t, 3.5 / (t * shelfC.aspect)); shelfC.position.set(0, 1.0, dist); shelfC.lookAt(0, 0.9, 0); shelfC.updateProjectionMatrix(); }
+function closeShelf() { shelfOpen = false; $('shelf').classList.add('hidden'); }
+function shelfFrame(now) {
+  if (!shelfOpen) return;
+  if (!shelfDrag) shelfRot *= 0.92;
+  shelfG.rotation.y = shelfRot + Math.sin(now / 2400) * 0.04;
+  for (const it of shelfItems) { if (it.hop > 0) { it.hop -= 0.016; const k = it.hop / 1.2; it.m.position.y = it.y0 + Math.abs(Math.sin(k * Math.PI * 3)) * 0.5 * k; it.m.rotation.y += 0.18; } }
+  shelfR.render(shelfS, shelfC); requestAnimationFrame(shelfFrame);
+}
+{ const cv = () => $('shelfCv'), sray = new THREE.Raycaster();
+  const down = e => { shelfDrag = { x: e.clientX, r: shelfRot, moved: 0 }; };
+  const move = e => { if (!shelfDrag) return; const dx = e.clientX - shelfDrag.x; shelfDrag.moved = Math.max(shelfDrag.moved, Math.abs(dx)); shelfRot = Math.max(-0.8, Math.min(0.8, shelfDrag.r + dx / 260)); };
+  const up = e => { if (!shelfDrag) return; const tap = shelfDrag.moved < 6; shelfDrag = null; if (!tap) return; const r = cv().getBoundingClientRect();
+    sray.setFromCamera({ x: (e.clientX - r.left) / r.width * 2 - 1, y: -(e.clientY - r.top) / r.height * 2 + 1 }, shelfC);
+    const hits = sray.intersectObjects(shelfItems.map(i => i.m), true); if (!hits.length) return; let o = hits[0].object; const it = shelfItems.find(i => { let x = o; while (x) { if (x === i.m) return true; x = x.parent; } return false; }); if (!it) return;
+    it.hop = 1.2; tone(it.got ? 880 : 300, it.got ? 1320 : 240, 0.15, 'triangle', 0.05); buzz(15);
+    $('shelfInfo').innerHTML = it.got ? `<b>${it.p.name}</b> · ${it.n ? '×' + it.n : ''}${it.g ? ' ✨ golden ×' + it.g : ''}` : `<b>???</b> · win it in the ${BOOTHS.find(b => b.set === it.p.set).name}`; };
+  setTimeout(() => { cv().addEventListener('pointerdown', down); window.addEventListener('pointermove', move); window.addEventListener('pointerup', up); }, 0); }
+// ---------- adaptive quality ----------
+let qTier = 0, qBuf = [], qNext = 0;
+const QT = [{ dpr: Math.min(2, window.devicePixelRatio || 1), shadows: true }, { dpr: Math.min(1.5, window.devicePixelRatio || 1), shadows: true }, { dpr: 1, shadows: false }];
+function setTier(i) { qTier = i; setQuality(QT[i]); }
+function qualityTick(ft, now) {
+  if (STRESS || save.quality !== 'auto' || shelfOpen) return; qBuf.push(ft); if (qBuf.length > 240) qBuf.shift();
+  if (now < qNext || qBuf.length < 180) return; qNext = now + 4000;
+  const fps = 1000 / (qBuf.reduce((a, b) => a + b, 0) / qBuf.length);
+  if (fps < 45 && qTier < QT.length - 1) { setTier(qTier + 1); qBuf = []; }
+}
+function applyQualitySetting() { if (save.quality === 'high') setTier(0); else if (save.quality === 'low') setTier(2); else setTier(0); qBuf = []; qNext = performance.now() + 6000; }
 // ---------- ui ----------
 let toastQ = [], toastT = 0;
 function toast(t, secs = 2.4) { toastQ.push([t, secs]); }
@@ -449,25 +608,44 @@ function hud() {
   $('dailyDot').classList.toggle('hidden', save.daily === today());
   ensureMissions(); $('missDot').classList.toggle('hidden', !save.missions.list.some(m => !m.claimed && m.prog >= m.goal));
   $('missN').textContent = save.missions.list.filter(m => m.claimed).length + '/3';
-  document.querySelectorAll('#luckyL i').forEach((el, i) => el.classList.toggle('on', i < save.lucky));
-  lamps.forEach((l, i) => l.material = i < save.lucky ? lampOn : lampOff);
+  const need = booth().luckyNeed;
+  document.querySelectorAll('#luckyL i').forEach((el, i) => { el.classList.toggle('on', i < save.lucky); el.classList.toggle('hidden', i >= need); });
+  lamps.forEach((l, i) => { l.material = i < save.lucky ? lampOn : lampOff; l.visible = i < need; l.userData.rim.visible = i < need; });
   $('hour').classList.toggle('hidden', goldT <= 0); $('hourT').textContent = Math.ceil(goldT) + 's';
+  $('boothName').textContent = booth().name;
 }
 let albumSet = 1;
 function openModal(id) {
-  for (const m of ['album', 'shop', 'out', 'missions']) $(m).classList.toggle('hidden', m !== id);
+  for (const m of ['album', 'shop', 'out', 'missions', 'booths', 'settings']) $(m).classList.toggle('hidden', m !== id);
   if (id === 'album') {
     const S = SETS[albumSet - 1], open = setUnlocked(S), list = PLUSH.filter(p => p.set === S.id);
     $('albumTabs').innerHTML = SETS.map(x => `<button data-set="${x.id}" class="${x.id === albumSet ? 'on' : ''}">${x.name}${setUnlocked(x) ? '' : ' 🔒'}</button>`).join('');
     $('albumTabs').querySelectorAll('button').forEach(b => b.onclick = () => { albumSet = +b.dataset.set; openModal('album'); });
     const have = list.filter(p => save.album[p.id] || save.album[p.id + '_gold']).length;
-    $('albumLine').textContent = open ? `${have}/8 collected · complete the set for +${S.bonus} coins${save.setsDone[S.id] ? ' ✓' : ''}. Golden ones are rare (10%).` : `Unlocks at level ${S.lv}. Keep pushing!`;
+    const BB = BOOTHS.find(b => b.set === S.id);
+    $('albumLine').textContent = open ? `${have}/8 collected · won in the ${BB.name} booth · complete the set for +${S.bonus} coins${save.setsDone[S.id] ? ' ✓' : ''}. Golden ones are rare (10%).` : `The ${BB.name} booth opens at level ${S.lv}.`;
     $('albumGrid').innerHTML = list.map(p => { const n = save.album[p.id] || 0, g = save.album[p.id + '_gold'] || 0, got = n || g;
       return `<div class="slot ${got ? 'have' : ''} ${g ? 'gold' : ''}"><img src="${plushThumb(p.id, !!g && !n)}" class="${got ? '' : 'sil'}" alt=""><b>${got ? p.name : '???'}</b><small>${n ? '×' + n : ''}${g ? ' ✨' + g : ''}${got ? '' : '&nbsp;'}</small></div>`; }).join('');
     $('albumGrid').classList.toggle('locked', !open);
   }
   if (id === 'shop') {
     $('dailyBtn').disabled = save.daily === today(); $('dailyBtn').textContent = save.daily === today() ? 'Daily bonus claimed ✓' : `Claim daily bonus · +${CFG.dailyBonus}`;
+    const al = adsLeft(); $('adBtn').disabled = al <= 0; $('adBtn').innerHTML = al > 0 ? `📺 Watch a short ad · +${AD_COINS} coins<em>${al} left today</em>` : '📺 No more ads today<em>back tomorrow</em>';
+    const miss = PLUSH.filter(p => p.set === booth().set && !save.album[p.id]).slice(0, 4);
+    $('prizeBooth').innerHTML = miss.length ? miss.map(p => `<button class="pack pb" data-buy="${p.id}"><img src="${plushThumb(p.id, false)}" alt=""><span>${p.name}<small>this exact plushie</small></span><em>€1,99</em></button>`).join('') : '<div class="note">You own every plushie in this booth. Nice.</div>';
+    $('prizeBooth').querySelectorAll('[data-buy]').forEach(b => b.onclick = () => buyPlush(b.dataset.buy));
+  }
+  if (id === 'booths') {
+    $('boothDot').classList.add('hidden');
+    $('boothList').innerHTML = BOOTHS.map(B => { const op = boothOpen(B), here = B.id === save.booth, S = SETS[B.set - 1], have = PLUSH.filter(p => p.set === B.set && (save.album[p.id] || save.album[p.id + '_gold'])).length;
+      return `<div class="booth b-${B.id} ${here ? 'here' : ''} ${op ? '' : 'locked'}"><div class="bh"><b>${B.name}</b><small>${S.name} · ${have}/8</small></div><p>${B.rule}</p>
+        ${here ? '<span class="tag">YOU ARE HERE</span>' : op ? `<button class="btn" data-go="${B.id}">WALK OVER</button>` : `<div class="lockrow"><span>🔒 Level ${B.lv}</span><button class="pack" data-unlock="${B.id}">Open now<em>€2,99</em></button></div>`}</div>`; }).join('');
+    $('boothList').querySelectorAll('[data-go]').forEach(b => b.onclick = () => { $('booths').classList.add('hidden'); switchBooth(b.dataset.go); });
+    $('boothList').querySelectorAll('[data-unlock]').forEach(b => b.onclick = () => buyBooth(b.dataset.unlock));
+  }
+  if (id === 'settings') {
+    document.querySelectorAll('[data-set-k]').forEach(b => { const k = b.dataset.setK; b.classList.toggle('on', !!save[k]); b.textContent = save[k] ? 'ON' : 'OFF'; });
+    document.querySelectorAll('[data-q]').forEach(b => b.classList.toggle('on', save.quality === b.dataset.q));
   }
   if (id === 'missions') {
     ensureMissions();
@@ -477,7 +655,8 @@ function openModal(id) {
     const n = save.streakDay === today() ? save.streak : (save.streakDay === new Date(Date.now() - 864e5).toDateString() ? save.streak : 0);
     $('streakLine').textContent = `🔥 Streak: ${n} day${n === 1 ? '' : 's'} · finish all 3 for +${20 + 10 * Math.min(n + (save.missions.bonus ? 0 : 1), 7)} coins. New tasks at midnight.`;
   }
-  if (id === 'out') { const left = CFG.refillSecs - Math.floor((Date.now() - save.lastRefill) / 1000) % CFG.refillSecs; $('outLine').textContent = `Next free coin in ${fmt(left)}. Free coins refill up to ${CFG.refillCap}.`; }
+  if (id === 'out') { const left = CFG.refillSecs - Math.floor((Date.now() - save.lastRefill) / 1000) % CFG.refillSecs; $('outLine').textContent = `Next free coin in ${fmt(left)}. Free coins refill up to ${CFG.refillCap}.`;
+    const al = adsLeft(); $('outAd').disabled = al <= 0; $('outAd').textContent = al > 0 ? `📺 Watch an ad · +${AD_COINS} coins` : 'No more ads today'; }
 }
 document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => b.closest('.modal').classList.add('hidden')));
 $('bAlbum').addEventListener('click', () => openModal('album'));
@@ -486,9 +665,16 @@ $('bMiss').addEventListener('click', () => openModal('missions'));
 $('spinBtn').addEventListener('click', spin);
 $('outShop').addEventListener('click', () => openModal('shop'));
 $('dailyBtn').addEventListener('click', () => { if (save.daily === today()) return; save.daily = today(); save.coins += CFG.dailyBonus; persist(); hud(); openModal('shop'); toast(`+${CFG.dailyBonus} daily coins`); tone(660, 1320, 0.3, 'triangle', 0.07); });
-document.querySelectorAll('[data-pack]').forEach(b => b.addEventListener('click', () => { const n = +b.dataset.pack; save.coins += n; persist(); hud(); toast(`TEST purchase: +${n} coins (no payment)`); tone(523, 1046, 0.3, 'triangle', 0.07); }));
+$('adBtn').addEventListener('click', watchAd); $('outAd').addEventListener('click', watchAd);
+$('bBooth').addEventListener('click', () => openModal('booths'));
+$('bShelf').addEventListener('click', () => openShelf()); $('shelfClose').addEventListener('click', closeShelf); $('albumShelf').addEventListener('click', () => { $('album').classList.add('hidden'); openShelf(albumSet); });
+$('bSet').addEventListener('click', () => openModal('settings'));
+document.querySelectorAll('[data-set-k]').forEach(b => b.addEventListener('click', () => { const k = b.dataset.setK; save[k] = !save[k]; persist(); openModal('settings'); }));
+document.querySelectorAll('[data-q]').forEach(b => b.addEventListener('click', () => { save.quality = b.dataset.q; persist(); applyQualitySetting(); openModal('settings'); }));
+$('tutReplay').addEventListener('click', () => { save.tut = 0; tutBase = null; persist(); $('settings').classList.add('hidden'); });
+$('coachSkip').addEventListener('click', () => { save.tut = 99; persist(); $('coach').classList.add('hidden'); });
+window.addEventListener('resize', () => { if (shelfOpen) resizeShelf(); });
 $('bShake').addEventListener('click', useShake); $('bWall').addEventListener('click', useWall); $('bGiant').addEventListener('click', useGiant);
-$('bSound').addEventListener('click', () => { save.sound = !save.sound; $('bSound').textContent = save.sound ? '🔊' : '🔈'; persist(); });
 // drop input: tap / hold to keep dropping
 const ray = new THREE.Raycaster(), plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -1.5), hit = new THREE.Vector3();
 let holding = false, holdX = 0, nextHold = 0, aimX = 0;
@@ -505,10 +691,10 @@ const dummy = new THREE.Object3D();
 let simSteps = 0;
 function frame(now) {
   const tA = performance.now();
-  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  const rawFt = now - last; const dt = Math.min(0.05, rawFt / 1000); last = now;
   acc += dt; let steps = 0;
   while (acc >= 1 / 60 && steps < 2) {
-    pushT += 1 / 60; ringT += 1 / 60; pusherBody.setNextKinematicTranslation({ x: 0, y: CFG.deckY / 2, z: pusherZ() });
+    pushT += 1 / 60; ringT += booth().ringSpeed / 60; pusherBody.setNextKinematicTranslation({ x: 0, y: CFG.deckY / 2, z: pusherZ() });
     world.step(); acc -= 1 / 60; steps++; simSteps++;
     for (const c of coins) if (c.fresh) { const t = c.body.translation();
       if (c.py > CFG.ringY && t.y <= CFG.ringY && Math.abs(t.x - ringX()) < CFG.ringTol && Math.abs(t.z - CFG.dropZ) < 0.7) { luckyHit(); if (c.star) c.fresh = false; }
@@ -538,6 +724,8 @@ function frame(now) {
   if (bulbT > (party ? 0.08 : 0.18)) { bulbT = 0; const k = Math.floor(now / (party ? 80 : 180)); bulbs.forEach((b, i) => { if (i < 36) b.material = party ? ((i + k) % 2 ? M.bulbOn : M.bulbOff) : (i + k) % 3 === 0 ? M.bulbOff : M.bulbOn; }); }
   chuteGlow.material.color.setHex(goldT > 0 ? 0xFFE38A : 0xFFC54D);
   wheel.rotation.z += dt * 0.08; chuteGlow.material.opacity = 0.25 + Math.sin(now / 300) * 0.1;
+  if (decoW.visible) { const a = snowGeo.attributes.position.array; for (let i = 0; i < SN; i++) { a[i * 3 + 1] -= dt * (1.2 + (i % 5) * 0.25); a[i * 3] += Math.sin(now / 900 + i) * dt * 0.3; if (a[i * 3 + 1] < -1) a[i * 3 + 1] = 21; } snowGeo.attributes.position.needsUpdate = true; }
+  tutStep(); tutArrow(); qualityTick(rawFt, now);
   if (shakeFx > 0 || jackFx > 2) { shakeFx = Math.max(0, shakeFx - dt); const k = Math.max(shakeFx, jackFx > 2 ? 0.15 : 0); camera.position.x = Math.sin(now / 20) * k * 0.4; } else camera.position.x = 0;
   // toasts
   if (toastT > 0) { toastT -= dt; if (toastT <= 0) $('toast').classList.remove('on'); }
@@ -546,7 +734,7 @@ function frame(now) {
   saveT += dt; if (saveT > 6) { saveT = 0; saveBoard(); }
   music();
   const tC = performance.now();
-  renderer.render(scene, camera);
+  if (!shelfOpen) renderer.render(scene, camera);
   if (perfHook) perfHook(now, dt, tB - tA, performance.now() - tC, steps);
   requestAnimationFrame(frame);
 }
@@ -560,13 +748,12 @@ window.addEventListener('pagehide', saveBoard);
   coinMesh = new THREE.InstancedMesh(new THREE.CylinderGeometry(CFG.coinR, CFG.coinR, CFG.coinH * 2, 28), [M.gold, M.goldFace, M.goldFace], MAXI); coinMesh.castShadow = true; coinMesh.receiveShadow = true; coinMesh.frustumCulled = false; scene.add(coinMesh);
   giantMesh = new THREE.InstancedMesh(new THREE.CylinderGeometry(CFG.coinR * 2.1, CFG.coinR * 2.1, CFG.coinH * 4, 36), [M.gold, M.goldFace, M.goldFace], 20); giantMesh.castShadow = true; giantMesh.frustumCulled = false; scene.add(giantMesh);
   starMesh = new THREE.InstancedMesh(new THREE.CylinderGeometry(CFG.coinR * 1.05, CFG.coinR * 1.05, CFG.coinH * 2.4, 28), [M.starSide, M.starFace, M.starFace], 30); starMesh.castShadow = true; starMesh.frustumCulled = false; scene.add(starMesh);
-  const fresh = fillBoard();
-  if (fresh) { for (let i = 0; i < 420; i++) { pushT += 1 / 60; pusherBody.setNextKinematicTranslation({ x: 0, y: CFG.deckY / 2, z: pusherZ() }); world.step(); }
-    for (let i = coins.length - 1; i >= 0; i--) if (coins[i].body.translation().y < -0.5) { world.removeRigidBody(coins[i].body); coins.splice(i, 1); } }
-  ensureMissions(); refill(); resize(); hud(); $('bSound').textContent = save.sound ? '🔊' : '🔈';
+  if (!boothOpen(booth())) save.booth = 'kermis';
+  applyBooth();
+  if (fillBoard()) warmBoard();
+  ensureMissions(); refill(); resize(); applyQualitySetting(); hud();
   $('loading').classList.add('hidden');
-  if (!save.seenIntro) { toast('Tap or hold to drop coins. Win the plushies!', 3.5); save.seenIntro = true; persist(); }
-  if (!save.seenRing) { toast('🎯 Drop a coin through the moving ring: 3 hits = a wheel spin', 4); save.seenRing = true; persist(); }
+
   requestAnimationFrame(frame);
   window.__k.ready = true;
   if (STRESS) import('./stress.js');
@@ -575,4 +762,4 @@ let perfHook = null;
 function setQuality({ dpr, shadows }) { if (dpr) { renderer.setPixelRatio(dpr); resize(); } if (shadows !== undefined) { key.castShadow = shadows; renderer.shadowMap.needsUpdate = true; } }
 function addLooseCoin() { return addCoin(-3.3 + Math.random() * 6.6, 3.2 + Math.random() * 0.8, -2.2 + Math.random() * 6); }
 function trimTo(n) { while (coins.length > n) { const i = Math.floor(Math.random() * coins.length); world.removeRigidBody(coins[i].body); coins.splice(i, 1); } }
-window.__k = { STRESS, renderer, setQuality, addLooseCoin, trimTo, burst() { rainQ += 50; doShake(); }, set perfHook(f) { perfHook = f; }, get simSteps() { return simSteps; }, ready: false, save, coins, prizes, dropAt, useShake, useWall, useGiant, openModal, CFG, queueSpin, spin, luckyHit, showCard, PLUSH, reward, WHEEL, mission, ringX, get combo() { return combo; }, get rainQ() { return rainQ; }, set goldT(v) { goldT = v; }, bumpCombo, get world() { return world; } };
+window.__k = { switchBooth, openShelf, closeShelf, watchAd, buyPlush, BOOTHS, get qTier() { return qTier; }, STRESS, renderer, setQuality, addLooseCoin, trimTo, burst() { rainQ += 50; doShake(); }, set perfHook(f) { perfHook = f; }, get simSteps() { return simSteps; }, ready: false, save, coins, prizes, dropAt, useShake, useWall, useGiant, openModal, CFG, queueSpin, spin, luckyHit, showCard, PLUSH, reward, WHEEL, mission, ringX, get combo() { return combo; }, get rainQ() { return rainQ; }, set goldT(v) { goldT = v; }, bumpCombo, get world() { return world; } };
