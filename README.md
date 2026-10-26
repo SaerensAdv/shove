@@ -26,6 +26,13 @@ Per phase it records fps, frame-time p50/p95/p99, jank (% frames over 34 ms), ph
 
 Settings → Pages → Deploy from branch → `play` / root. Until Pages is on, the test URL is `https://raw.githack.com/SaerensAdv/shove/play/stress.html`.
 
+## v0.8 front-end polish (26 Oct 2026)
+
+- Landscape phone layouts now keep the full navigation visible; the HUD and coach compress to preserve the play area.
+- Icon-only navigation controls and dialogs expose accessible labels/roles, visible keyboard focus, and Escape dismisses closable dialogs/side games.
+- QA checked 320×568, 390×844 portrait, 568×320 and 844×390 landscape, and 1024×768 tablet layouts. No JavaScript errors in those checks.
+- This is the first front-end polish pass, not a claim that the full game or release is complete. Next: complete-flow QA and first-session/progression work.
+
 ## v0.8: the fair + balance
 
 - **The fair** (🎡 button): three skill games, no luck involved. Each play costs coins, so they work as coin sinks.

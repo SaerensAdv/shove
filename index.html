@@ -2,11 +2,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <link rel="manifest" href="./manifest.json"><meta name="theme-color" content="#1A0F14"><link rel="icon" href="./icons/icon-192.png"><link rel="apple-touch-icon" href="./icons/icon-180.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="SHOVE">
 <title>SHOVE · Carnival coin pusher · prototype v0.8</title>
-<link href="https://fonts.googleapis.com/css2?family=Bungee&family=DM+Sans:wght@500;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=DM+Sans:wght@500;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <style>
 :root{--red:#D8343F;--gold:#FFD25A;--cream:#F6EBD5;--ink:#1A0F14;--sky:#1B0F2E}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 button{font-family:inherit}
+button:focus-visible,a:focus-visible,textarea:focus-visible{outline:3px solid #FFF3B0;outline-offset:2px}
 html,body{margin:0;height:100%;overflow:hidden;background:var(--sky);font-family:"DM Sans",system-ui,sans-serif;color:var(--cream);touch-action:none;user-select:none;-webkit-user-select:none}
 #cv{position:fixed;inset:0;width:100%;height:100%;display:block}
 .top{position:fixed;left:0;right:0;top:0;padding:max(10px,env(safe-area-inset-top)) 12px 0;display:flex;gap:8px;align-items:flex-start;pointer-events:none}
@@ -136,13 +137,13 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--sky);font-family
   <div class="pill hidden" id="hour">×2 <span id="hourT">20s</span></div>
 </div>
 <div class="side">
-  <button class="ibtn" id="bBooth" title="Booths">🎪<span class="dot hidden" id="boothDot"></span></button>
-  <button class="ibtn" id="bFair" title="Fair games">🎡</button>
-  <button class="ibtn" id="bShelf" title="Prize shelf">🏆</button>
-  <button class="ibtn" id="bAlbum" title="Collection">🧸<small id="albumN">0/8</small></button>
-  <button class="ibtn" id="bMiss" title="Daily tasks">📋<small id="missN">0/3</small><span class="dot hidden" id="missDot"></span></button>
-  <button class="ibtn" id="bShop" title="Coin booth">🎟<span class="dot hidden" id="dailyDot"></span></button>
-  <button class="ibtn" id="bSet" title="Settings">⚙️</button>
+  <button class="ibtn" id="bBooth" title="Booths" aria-label="Booths">🎪<span class="dot hidden" id="boothDot"></span></button>
+  <button class="ibtn" id="bFair" title="Fair games" aria-label="Fair games">🎡</button>
+  <button class="ibtn" id="bShelf" title="Prize shelf" aria-label="Prize shelf">🏆</button>
+  <button class="ibtn" id="bAlbum" title="Collection" aria-label="Plush collection">🧸<small id="albumN">0/8</small></button>
+  <button class="ibtn" id="bMiss" title="Daily tasks" aria-label="Daily tasks">📋<small id="missN">0/3</small><span class="dot hidden" id="missDot"></span></button>
+  <button class="ibtn" id="bShop" title="Coin booth" aria-label="Coin booth">🎟<span class="dot hidden" id="dailyDot"></span></button>
+  <button class="ibtn" id="bSet" title="Settings" aria-label="Settings">⚙️</button>
 </div>
 <div id="coach" class="hidden"><p id="coachT"></p><div class="cr"><span id="coachN">1/5</span><button id="coachSkip">Skip tutorial</button></div></div><div id="tutArrow"></div>
 <div class="bottom">
@@ -187,4 +188,30 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--sky);font-family
   "three":"https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js",
   "three/examples/jsm/":"https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/",
   "@dimforge/rapier3d-compat":"https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.12.0/rapier.es.js"}}</script>
-<script type="module" src="./main.js"></script></body></html>
+<script type="module" src="./main.js"></script><script>
+(() => {
+  const labelDialogs = () => {
+    document.querySelectorAll('.modal').forEach(dialog => {
+      dialog.setAttribute('role', 'dialog'); dialog.setAttribute('aria-modal', 'true');
+      const heading = dialog.querySelector('h2');
+      if (heading) { if (!heading.id) heading.id = `${dialog.id}-title`; dialog.setAttribute('aria-labelledby', heading.id); }
+      const close = dialog.querySelector('[data-close]');
+      if (close && !close.hasAttribute('aria-label')) close.setAttribute('aria-label', `Close ${heading ? heading.textContent.trim() : 'dialog'}`);
+    });
+    const game = document.getElementById('sg');
+    if (game) { game.setAttribute('role', 'dialog'); game.setAttribute('aria-modal', 'true'); game.setAttribute('aria-labelledby', 'sgTitle'); document.getElementById('sgClose')?.setAttribute('aria-label', 'Close side game'); }
+  };
+  labelDialogs();
+  new MutationObserver(labelDialogs).observe(document.body, { childList: true, subtree: true });
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    const game = document.getElementById('sg');
+    if (game && !game.classList.contains('hidden')) { document.getElementById('sgClose')?.click(); e.preventDefault(); return; }
+    const shelf = document.getElementById('shelf');
+    if (shelf && !shelf.classList.contains('hidden')) { document.getElementById('shelfClose')?.click(); e.preventDefault(); return; }
+    const dialog = [...document.querySelectorAll('.modal:not(.hidden)')].find(m => m.id !== 'wheel');
+    if (dialog) { dialog.classList.add('hidden'); e.preventDefault(); }
+  });
+})();
+</script>
+</body></html>
