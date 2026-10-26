@@ -126,6 +126,25 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--sky);font-family
 #shelfInfo{position:absolute;left:16px;right:16px;bottom:max(18px,env(safe-area-inset-bottom));text-align:center;background:rgba(26,15,20,.85);border:2px solid #8A5A12;border-radius:14px;padding:12px;font-size:16px}
 #adOv{position:fixed;inset:0;z-index:12;background:#111;display:grid;place-items:center;text-align:center;color:#ddd;font-family:"DM Sans",system-ui,sans-serif}
 #adOv b{display:block;font-family:Bungee,Impact,sans-serif;font-weight:400;font-size:64px;color:#fff}#adOv small{display:block;opacity:.6;margin-top:8px;font-size:14px}
+@media (orientation:landscape) and (max-height:520px){
+  .top{padding:max(6px,env(safe-area-inset-top)) 8px 0;gap:6px;align-items:center}
+  .pill{padding:4px 8px}
+  .coins .c{width:22px;height:22px}.coins b{font-size:19px}.coins small{font-size:10px}
+  .lvl{max-width:120px;gap:5px}.lvl .badge{font-size:12px;padding:3px 6px}
+  .lucky,.top .sp{display:none!important}
+  #hour{position:fixed;left:10px;right:auto;top:calc(max(6px,env(safe-area-inset-top)) + 50px);z-index:3}
+  .side{top:calc(max(6px,env(safe-area-inset-top)) + 50px);right:8px;flex-direction:row;flex-wrap:nowrap;gap:3px}
+  .side .ibtn{width:clamp(32px,7vh,40px);height:clamp(32px,7vh,40px);font-size:17px;border-radius:11px}
+  .side .ibtn small{font-size:9px;bottom:-5px;right:-4px}
+  .bottom{padding:0 8px max(5px,env(safe-area-inset-bottom));gap:6px}
+  .pw{min-width:clamp(68px,12vw,88px);padding:5px 7px;border-radius:14px}
+  .pw span{font-size:18px}.pw b{font-size:12px}
+  #coach{right:min(340px,46vw);margin:0;top:calc(max(6px,env(safe-area-inset-top)) + 50px);max-height:140px;overflow:auto;padding:8px 10px}
+  #coach p{font-size:13px}#coach .cr{margin-top:3px}
+  .modal{padding:8px}.panel{max-height:96%;padding:12px}
+  #sg .sg-top{padding:max(6px,env(safe-area-inset-top)) 8px 0}
+  #sg .sg-top b{font-size:16px}#sg .x{width:38px;height:38px}
+}
 .hidden{display:none!important}
 </style></head><body>
 <canvas id="cv"></canvas>
