@@ -1,0 +1,143 @@
+/* Bofflebell UI skin v0.9 (UI pass 1). Laadt na de basis-CSS in index.html en zet de SHOVE-UI om naar de rollen uit brand/tokens.css (DESIGN.md). Alleen rollen, geen losse hex. */
+:root{--red:var(--color-primary);--gold:var(--color-reward);--cream:var(--color-on-surface);--ink:var(--color-background);--sky:var(--color-background);
+--felt:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+--bell:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 70'%3E%3Cpath d='M32 11c-14 0-20 12-20 26v10l-6 8h52l-6-8V37c0-14-6-26-20-26z' fill='%236B4510' opacity='.55'/%3E%3Crect x='6' y='52' width='52' height='7' rx='3.5' fill='%236B4510' opacity='.55'/%3E%3Ccircle cx='32' cy='63' r='6' fill='%236B4510' opacity='.55'/%3E%3C/svg%3E")}
+html,body{background:var(--felt),var(--color-background);font-family:var(--font-text);color:var(--color-on-surface)}
+button:focus-visible,a:focus-visible,textarea:focus-visible{outline:3px solid var(--color-focus);outline-offset:3px}
+
+/* display-tekst: Lilita One, nooit faux bold */
+.coins b,.lvl .badge,#hour,#combo,#card b,.mis button,#wheel h2,.pw b,.pop,.panel h2,.btn,.pack em,#loading,.sub,.booth .bh b,.od em,#sg .sg-top b,.fg b,.fg em,#shelf h2,#adOv b{font-family:var(--font-display);font-weight:400}
+.lucky,#card em,.tabs button,.pw,.pack,#coach .cr,#coach button,.booth .tag,.tg,.seg button,.linkrow a,.linkrow button,#wheelOdds,#adOv,#adBtn em,#bkText{font-family:var(--font-text)}
+#bkText{font-family:ui-monospace,Menlo,monospace}
+
+/* HUD */
+.pill{background:var(--felt),var(--color-surface);border:3px solid var(--color-border-trim);border-radius:var(--radius-full);box-shadow:0 3px 0 rgba(10,4,8,.6);backdrop-filter:none}
+.coins .c{position:relative;background:radial-gradient(circle at 35% 30%,var(--cream-50),var(--brass-400) 55%,var(--brass-600));box-shadow:inset 0 -3px 0 rgba(10,4,8,.25),inset 0 0 0 2px var(--brass-600)}
+.coins .c::after{content:"";position:absolute;inset:5px;background:var(--bell) center/contain no-repeat}
+.coins small{color:var(--color-on-surface-muted);opacity:1}
+.lvl .badge{background:var(--color-primary);color:var(--color-on-primary);border-radius:var(--radius-full);padding:4px 9px}
+.xp,.mis .bar{background:var(--color-background);box-shadow:inset 0 1px 2px rgba(10,4,8,.6)}
+.xp i,.mis .bar i{background:linear-gradient(90deg,var(--brass-400),var(--brass-300))}
+.lucky i{background:var(--color-surface-raised);border-color:var(--color-border-trim)}
+.lucky i.on{background:var(--brass-300);border-color:var(--cream-50);box-shadow:var(--shadow-glow)}
+#hour{background:var(--color-reward);color:var(--color-on-reward);border-color:var(--brass-300)}
+
+/* iconknoppen: rond vilt met messing rand */
+.ibtn{border-radius:50%;background:var(--felt),var(--color-surface-raised);border:3px solid var(--color-border-trim);color:var(--color-on-surface);box-shadow:0 3px 0 rgba(10,4,8,.6);transition:transform var(--dur-fast) var(--ease-out),border-color var(--dur-fast)}
+.ibtn:active{transform:translateY(3px);box-shadow:none}
+@media (hover:hover){.ibtn:hover{border-color:var(--color-reward)}}
+.ibtn small{background:var(--color-reward);color:var(--color-on-reward);border-radius:var(--radius-full);font-family:var(--font-text);font-weight:900}
+.ibtn .dot{background:var(--color-primary);border-color:var(--cream-50)}
+
+/* power-ups */
+.pw{position:relative;border:3px solid var(--color-border-trim);background:var(--felt),var(--color-surface-raised);color:var(--color-on-surface);box-shadow:0 4px 0 rgba(10,4,8,.6);font-weight:900;letter-spacing:.04em;transition:transform var(--dur-fast) var(--ease-out)}
+.pw::after{content:"";position:absolute;inset:4px;border-radius:13px;outline:2px dashed var(--stitch-dark);pointer-events:none}
+.pw b{color:var(--color-highlight)}
+.pw:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(10,4,8,.6)}
+.pw:disabled{opacity:1;color:var(--color-disabled);border-color:var(--color-border);background:var(--color-surface)}
+.pw:disabled b{color:var(--color-disabled)}.pw:disabled span{filter:grayscale(1);opacity:.5}.pw:disabled::after{display:none}
+
+/* knoppen: .btn = de ene hoofdactie (rood vilt met stiksel) */
+.btn{position:relative;background:var(--felt),var(--color-primary);color:var(--color-on-primary);border-radius:var(--radius-full);letter-spacing:.04em;min-height:52px;box-shadow:0 4px 0 var(--red-700),0 8px 18px rgba(10,4,8,.35);transition:transform var(--dur-fast) var(--ease-out),background-color var(--dur-fast)}
+.btn::after{content:"";position:absolute;inset:5px;border-radius:inherit;outline:2px dashed var(--stitch-dark);pointer-events:none}
+@media (hover:hover){.btn:hover{background-color:var(--color-primary-hover);background-image:var(--felt)}}
+.btn:active{background:var(--felt),var(--color-primary-pressed);transform:translateY(3px);box-shadow:0 1px 0 var(--red-700)}
+.btn:disabled{opacity:1;background:var(--color-surface-raised);color:var(--color-disabled);box-shadow:none;transform:none}
+.btn:disabled::after{display:none}
+/* beloningen: messing */
+#dailyBtn,#awayGo,.mis button{background:var(--felt),var(--color-reward);color:var(--color-on-reward);box-shadow:0 4px 0 var(--brass-800)}
+#dailyBtn::after,#awayGo::after{outline-color:var(--stitch-light)}
+@media (hover:hover){#dailyBtn:hover,#awayGo:hover,.mis button:hover{background-color:var(--color-reward-hover);box-shadow:0 4px 0 var(--brass-800),var(--shadow-glow)}}
+#dailyBtn:active,#awayGo:active,.mis button:active{background:var(--felt),var(--color-reward-pressed);box-shadow:0 1px 0 var(--brass-800)}
+.mis button{border-radius:var(--radius-full);padding:9px 14px}
+.mis button:disabled,#dailyBtn:disabled{background:var(--color-surface-raised);color:var(--color-disabled);box-shadow:none}
+/* secundair: settings-knoppen */
+#installBtn,#tutReplay{background:var(--felt),var(--color-surface-raised);color:var(--color-on-surface);border:3px solid var(--color-border-trim);box-shadow:0 3px 0 rgba(10,4,8,.6)}
+@media (hover:hover){#installBtn:hover,#tutReplay:hover{background-color:var(--color-surface-raised);border-color:var(--color-reward)}}
+#installBtn:active,#tutReplay:active{background:var(--felt),var(--color-surface);box-shadow:none}
+.pack{background:var(--felt),var(--color-surface-raised);border:2px solid var(--color-border);border-radius:var(--radius-md);color:var(--color-on-surface)}
+@media (hover:hover){.pack:hover{border-color:var(--color-reward)}}
+.pack:disabled{opacity:1;color:var(--color-disabled);background:var(--color-surface)}
+.pack em,.od em,.fg em{color:var(--color-highlight)}
+.pack small,.pack.pb small{color:var(--color-on-surface-muted);opacity:1}
+.pack.pb img{background:var(--color-surface)}
+
+/* panelen: vilt, borduurrand, stiksel */
+.modal{background:rgba(14,6,12,.82)}
+.panel{background:var(--felt),var(--color-surface);border:3px solid var(--color-border-trim);border-radius:var(--radius-xl);box-shadow:var(--shadow-panel);padding:20px}
+.panel::before{content:"";position:absolute;inset:8px;border-radius:20px;outline:2px dashed rgba(255,248,234,.2);pointer-events:none}
+.panel h2{color:var(--color-highlight);text-shadow:0 3px 0 var(--red-700);letter-spacing:.01em}
+.panel p{color:var(--color-on-surface-muted);opacity:1}
+.x{width:44px;height:44px;border-radius:50%;background:var(--color-surface-raised);top:10px;right:10px;z-index:1}
+.sub{color:var(--color-highlight)}
+.note{color:var(--color-on-surface-muted);opacity:1}
+.fair{border-color:var(--color-border);color:var(--color-on-surface-muted);opacity:1}
+.tabs{background:var(--color-background);padding:5px;border-radius:var(--radius-full);gap:4px}
+.tabs button{background:transparent;border:none;border-radius:var(--radius-full);color:var(--color-on-surface-muted);white-space:nowrap}
+.tabs button.on{background:var(--color-reward);color:var(--color-on-reward)}
+.slot,.mis,.aw{background:var(--color-background);border-color:var(--color-border)}
+.slot.have,.mis.done{border-color:var(--color-reward)}
+.slot small,.mis small,.aw small,.booth .bh small{color:var(--color-on-surface-muted);opacity:1}
+.mis.claimed{opacity:1;color:var(--color-disabled)}
+.setrow,.od{border-bottom:2px dashed var(--color-border)}
+.tg,.seg button{background:var(--color-surface-raised);border-color:var(--color-border);border-radius:var(--radius-full);color:var(--color-on-surface)}
+.tg.on{background:var(--mint-500);border-color:var(--mint-300);color:var(--color-on-reward)}
+.seg button.on{background:var(--color-reward);border-color:var(--color-reward);color:var(--color-on-reward)}
+.booth{position:relative;border:3px solid var(--color-border-trim);border-radius:var(--radius-lg);box-shadow:0 4px 0 rgba(10,4,8,.6)}
+.booth::after{content:"";position:absolute;inset:6px;border-radius:16px;outline:2px dashed var(--stitch-dark);pointer-events:none}
+.booth.here{border-color:var(--color-reward);box-shadow:0 4px 0 rgba(10,4,8,.6),var(--shadow-glow)}
+.booth.locked{opacity:1;border-color:var(--color-border)}
+.booth p{color:var(--color-on-surface-muted);opacity:1}
+.booth .tag{color:var(--color-highlight)}
+.fg{position:relative;background:var(--felt),linear-gradient(135deg,var(--red-700),var(--color-surface));border:3px solid var(--color-border-trim);border-radius:var(--radius-lg)}
+.fg.locked{opacity:1;border-color:var(--color-border);background:var(--felt),var(--color-surface-raised);color:var(--color-on-surface-muted)}
+.fg small{color:var(--color-on-surface-muted);opacity:1}
+#bkText{background:var(--color-background);border-color:var(--color-border)}
+#bkMsg{color:var(--color-highlight)}
+.linkrow a,.linkrow button,#wheelOdds{color:var(--color-on-surface-muted);opacity:1}
+
+/* papier: toast, coach (Boffle), prijskaart */
+#toast{background:var(--felt),var(--color-paper);color:var(--color-on-paper);border-color:var(--color-primary);border-radius:var(--radius-md)}
+#coach{background:var(--felt),var(--color-paper);color:var(--color-on-paper);border:3px solid var(--color-border-trim);border-radius:var(--radius-lg)}
+#coach::before{content:"BOFFLE";display:block;font:400 14px var(--font-display);letter-spacing:.06em;color:var(--color-on-paper-accent);margin-bottom:2px}
+#coach .cr{color:var(--color-on-paper-accent);opacity:1}
+#coach button{color:var(--color-on-paper-accent)}
+#tutArrow{border-top-color:var(--brass-300);filter:drop-shadow(0 3px 0 var(--red-700))}
+#tutArrow.left{border-left-color:var(--brass-300);border-top-color:transparent}
+#card{background:var(--felt),var(--color-paper);color:var(--color-on-paper);border:none;border-top:12px solid var(--color-primary);border-radius:var(--radius-lg)}
+#card.gold{background:linear-gradient(135deg,var(--cream-50),var(--brass-300));border-top-color:var(--brass-600)}
+#card em{background:var(--color-background);color:var(--color-on-surface);border-radius:var(--radius-full);padding:3px 8px}
+#card em.new{background:var(--mint-500);color:var(--color-on-reward)}
+#card small{color:var(--color-on-paper-accent);opacity:1}
+
+/* rad, combo, pops */
+#wheel h2,#shelf h2{color:var(--color-highlight);text-shadow:0 3px 0 var(--red-700)}
+.pointer{border-top-color:var(--cream-50);filter:drop-shadow(0 3px 0 var(--red-700))}
+#combo{color:var(--cream-50);text-shadow:0 3px 0 var(--red-700),0 0 18px rgba(242,207,115,.5)}
+#combo.hot{color:var(--brass-300)}
+.pop{color:var(--brass-300);text-shadow:0 3px 0 var(--brass-800)}
+.pop.lucky{color:var(--cream-50);text-shadow:0 3px 0 var(--color-primary),var(--shadow-glow)}
+
+/* volledige schermen */
+#sg,#shelf{background:var(--color-background)}
+#sg .x,#shelf .x{background:var(--color-surface-raised);border:3px solid var(--color-border-trim);border-radius:50%}
+#sg .sg-top b{color:var(--color-highlight);text-shadow:0 2px 0 var(--red-700)}
+#sg .sg-top span{color:var(--color-on-surface-muted);opacity:1}
+#shelfInfo{background:var(--felt),var(--color-surface);border:3px solid var(--color-border-trim);border-radius:var(--radius-lg)}
+#away .panel,#sgEnd .panel{border-color:var(--color-reward)}
+
+/* laadscherm: het uithangbord */
+#loading{background:radial-gradient(circle,var(--cream-50) 0 2px,rgba(242,207,115,.75) 3px,transparent 5px) 0 0/26px 26px,radial-gradient(60vw 50vh at 50% 45%,var(--red-700) 0%,transparent 70%),var(--color-background);font-family:var(--font-text)}
+#loading .bb-sign{position:relative;display:inline-block;padding:14px 20px 16px;border-radius:var(--radius-xl);background:var(--felt),var(--color-primary);border:4px solid var(--brass-400);box-shadow:0 6px 0 var(--red-700),var(--shadow-panel)}
+#loading .bb-sign::after{content:"";position:absolute;inset:7px;border-radius:20px;outline:2px dashed var(--stitch-dark)}
+#loading .bb-word{font:400 clamp(34px,11vw,56px)/1 var(--font-display);color:var(--cream-50);text-shadow:0 4px 0 var(--red-700);letter-spacing:.01em;white-space:nowrap}
+#loading .bb-word i{display:inline-block;width:.8em;height:.86em;vertical-align:-.08em;background:radial-gradient(circle at 38% 32%,var(--cream-50),var(--brass-400) 45%,var(--brass-600));-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 70'%3E%3Ccircle cx='32' cy='7' r='5' fill='none' stroke='black' stroke-width='4'/%3E%3Cpath d='M32 11c-14 0-20 12-20 26v10l-6 8h52l-6-8V37c0-14-6-26-20-26z'/%3E%3Crect x='6' y='52' width='52' height='7' rx='3.5'/%3E%3Ccircle cx='32' cy='63' r='6'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 70'%3E%3Ccircle cx='32' cy='7' r='5' fill='none' stroke='black' stroke-width='4'/%3E%3Cpath d='M32 11c-14 0-20 12-20 26v10l-6 8h52l-6-8V37c0-14-6-26-20-26z'/%3E%3Crect x='6' y='52' width='52' height='7' rx='3.5'/%3E%3Ccircle cx='32' cy='63' r='6'/%3E%3C/svg%3E") center/contain no-repeat;transform-origin:50% 8%;animation:bbRing 1.8s var(--ease-swing) infinite}
+#loading .bb-sub{display:block;margin-top:22px;font:800 13px var(--font-text);letter-spacing:.14em;text-transform:uppercase;color:var(--color-highlight)}
+@keyframes bbRing{0%,55%,100%{transform:rotate(0)}65%{transform:rotate(16deg)}78%{transform:rotate(-12deg)}90%{transform:rotate(5deg)}}
+@media (prefers-reduced-motion:reduce){#loading .bb-word i{animation:none}.ibtn,.pw,.btn{transition:none}}
+/* HUD-breedte: level-badge nooit laten plooien */
+.lvl{min-width:112px}.lvl .badge{white-space:nowrap}
+#installBtn,#tutReplay{font-size:15px;line-height:1.15}
+.pill.coins{border-radius:var(--radius-lg);flex:none}.coins small{white-space:nowrap}
+.pill.lucky{flex:none}
+@media (max-width:360px){.top{gap:5px;padding-left:8px;padding-right:8px}.pill{padding:5px 8px}.lvl{min-width:92px}.lvl .badge{padding:4px 7px}.lucky{gap:3px}}

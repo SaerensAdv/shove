@@ -1,8 +1,8 @@
-// SHOVE service worker: plays offline after the first visit.
+// Bofflebell service worker: plays offline after the first visit.
 // Own files: network first (so new builds show up right away), cache as fallback.
 // Libraries and fonts from the CDN are versioned, so: cache first.
-const V = 'shove-v0.8.1';
-const CORE = ['./index.html', './main.js', './sidegames.js', './manifest.json', './privacy.html', './assets/icon.svg'];
+const V = 'bofflebell-v0.9.0';
+const CORE = ['./index.html', './main.js', './sidegames.js', './manifest.json', './privacy.html', './assets/icon.svg', './brand/tokens.css', './brand/bofflebell-ui.css'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(V).then(c => c.addAll(CORE)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== V).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', e => {
