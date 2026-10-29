@@ -4,11 +4,12 @@ import * as THREE from 'three';
 
 const qs = location.search + location.hash;
 const STRESS = /[?&#]stress/.test(qs) || !!window.SHOVE_STRESS;
+if (/[?&#]econ/.test(location.search + location.hash)) { const _set = Storage.prototype.setItem; Storage.prototype.setItem = function (key, v) { if (this === window.localStorage) return; return _set.call(this, key, v); }; }
 const st = { slots: [], marks: [], sel: 1, quake: 0, qAmp: 0, jolt: 0, waves: [], cam: null, scene: null, prevShakes: null, giants: new WeakSet(), ac: null };
 window.bbPlay = st;
 
 // ---------- balans: rad minder vaak (ringhit moet preciezer, lucky token zeldzamer) ----------
-function tune(k) { k.CFG.ringTol = 0.09; k.CFG.starChance = 1 / 320; }
+function tune(k) { k.CFG.ringTol = 0.04; k.CFG.starChance = 1 / 640; }
 
 // ---------- gleuven ----------
 const BASE = [-1.9, 0, 1.9], EXTRA = [-0.95, 0.95];
@@ -78,6 +79,7 @@ function strongerShake(k) {
 }
 
 // ---------- economie-meting (?econ): 60 s opwarmen, dan 5 min spelen met 3 drops per seconde ----------
+// Bevriest de pagina ±2,5 min (synchroon) en schrijft niets weg naar localStorage.
 function econ(k) {
   const out = document.createElement('pre'); out.id = 'bbEcon'; out.style.cssText = 'position:fixed;left:8px;right:8px;top:40%;z-index:30;background:#F6EBD5;color:#1A0F14;padding:10px;font:12px ui-monospace,monospace;white-space:pre-wrap;border-radius:10px'; out.textContent = 'econ: meten...'; document.body.appendChild(out);
   setTimeout(() => { const r = {}; const t0 = performance.now(); const coins0 = k.save.coins;

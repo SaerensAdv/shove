@@ -32,12 +32,14 @@
 /* coach en toasts niet onder de tabbalk */
 #combo{bottom:170px!important}#pops{bottom:170px!important}
 @media (orientation:landscape) and (max-height:520px){
-  #bbTabs{left:auto;right:8px;width:min(380px,48vw);height:54px;border-radius:18px}
-  #bbTabs .ibtn{height:48px;font-size:18px}#bbTabs .ibtn .tl{font-size:9px}
-  #bbTabs .ibtn.bb-play{width:58px;height:58px;margin-top:-14px}
+  /* landscape: tabbalk als verticale rail rechts, zodat machine en Boffle vrij blijven */
+  #bbTabs{left:auto;right:max(8px,env(safe-area-inset-right));top:62px;bottom:max(8px,env(safe-area-inset-bottom));width:76px;height:auto;grid-template-columns:1fr;grid-template-rows:repeat(5,1fr);padding:4px 0;border-radius:20px}
+  #bbTabs .ibtn{height:100%;max-height:58px;font-size:18px}#bbTabs .ibtn .tl{font-size:10px}
+  #bbTabs .ibtn.bb-play{width:56px;height:56px;margin:0 auto}
   .bottom{bottom:max(6px,env(safe-area-inset-bottom))!important;justify-content:flex-start!important;left:8px!important;right:auto!important}
   .bottom .pw{width:50px;height:50px}
-  #bbBell{width:42px;height:42px}
+  #bbBell{width:44px;height:44px;right:calc(max(8px,env(safe-area-inset-right)) + 16px)}
+  #bbMenu{right:calc(max(8px,env(safe-area-inset-right)) + 84px);top:10px}
 }
 @media (prefers-reduced-motion:reduce){#bbTabs .ibtn:active{transform:none}}
 .top{padding-right:72px!important}

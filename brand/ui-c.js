@@ -20,5 +20,12 @@
   document.body.append(bell, menu);
   // rode stip op de bel als er in het menu iets nieuws is (bv. een nieuwe kraam staat in de tabbalk, collectie-teller niet)
   const dot = document.createElement('span'); dot.className = 'dot hidden'; bell.appendChild(dot);
+  // coach-ballon nooit over de tutorial-pijl: wijst de pijl naar een plek onder de ballon, dan schuift de ballon naar onder (boven de power-ups)
+  const coach = $('coach'), arrow = $('tutArrow');
+  if (coach && arrow) { const loop = () => { if (innerHeight > innerWidth && !coach.classList.contains('hidden') && !arrow.classList.contains('left') && arrow.style.top) {
+      coach.style.top = ''; const r = coach.getBoundingClientRect(), tip = parseFloat(arrow.style.top), x = parseFloat(arrow.style.left) || 0;
+      const low = innerHeight - 178 - r.height;
+      if (tip > r.top && tip - 30 < r.bottom && x > r.left - 16 && x < r.right + 16 && low > tip + 60) coach.style.top = low + 'px';
+    } else if (coach.style.top) coach.style.top = ''; requestAnimationFrame(loop); }; requestAnimationFrame(loop); }
   // de lucky-lampjes blijven naast het level; de oude zijkolom is leeg en verborgen
 })();
