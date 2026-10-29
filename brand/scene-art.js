@@ -1,4 +1,4 @@
-// Bofflebell 3D-art pass v1: vilt, messing, bel-munt, logobord, warme lampjes en kermis achter de machine.
+// Bofflebell 3D-art pass v1.1: vilt, messing, bel-munt, logobord, warme lampjes en kermis achter de machine.
 // Losse laag bovenop main.js: haakt in op de render-call en past de bestaande scene aan. main.js blijft onaangeroerd.
 // Elke stap is idempotent en faalt stil, zodat de game altijd blijft draaien.
 import * as THREE from 'three';
@@ -80,11 +80,14 @@ function init(scene, renderer) {
     // luifel: vilt-reliëf op de strepen
     if (m.map && Math.abs(m.roughness - 0.8) < 0.001 && m.side === THREE.DoubleSide) { m.bumpMap = feltBump(6); m.bumpScale = 1.2; m.roughness = 0.92; m.needsUpdate = true; st.done.add(m); continue; }
     // muntrand: warmer messing
-    if (m.metalness === 1 && near(m.color, 0xD99A22)) { m.color.setHex(0xE0A93E); m.roughness = 0.28; st.done.add(m); }
+    if (m.metalness === 1 && near(m.color, 0xD99A22)) { m.color.setHex(0xE6B24A); m.roughness = 0.3; m.metalness = 0.85; st.done.add(m); }
   }
+  // pusher: crème vilt met messing rand, zodat de munten er duidelijk op afsteken
+  const pushM = new THREE.MeshStandardMaterial({ color: 0xEADBB8, map: feltMap(2), bumpMap: feltBump(2), bumpScale: 1.1, roughness: 0.93 }); st.done.add(pushM);
+  scene.traverse(o => { if (o.isMesh && o.geometry && o.geometry.parameters && Math.abs((o.geometry.parameters.width || 0) - 7.96) < 0.001 && o.parent && o.parent !== scene) o.material = pushM; });
   // munten: bel op de voorkant
   const face = tex(coinFace(), 1); face.wrapS = face.wrapT = THREE.ClampToEdgeWrapping; face.repeat.set(1, 1);
-  scene.traverse(o => { if (o.isInstancedMesh && Array.isArray(o.material) && o.material.length === 3) { const f = o.material[1]; if (f && f.map && f.metalness === 1 && !st.done.has(f)) { f.map = face; f.roughness = 0.26; f.needsUpdate = true; st.done.add(f); } } });
+  scene.traverse(o => { if (o.isInstancedMesh && Array.isArray(o.material) && o.material.length === 3) { const f = o.material[1]; if (f && f.map && f.metalness === 1 && !st.done.has(f)) { f.map = face; f.roughness = 0.3; f.metalness = 0.82; f.emissive = new THREE.Color(0x2A1804); f.needsUpdate = true; st.done.add(f); } } });
   // logobord en de lampjesrijen die het vervangt
   scene.traverse(o => { if (o.isMesh && o.geometry && o.geometry.type === 'PlaneGeometry' && o.geometry.parameters.width === 6.4 && o.geometry.parameters.height === 1.6) st.sign = o; });
   st.signRows = []; scene.traverse(o => { if (o.isMesh && o.geometry && o.geometry.type === 'SphereGeometry' && Math.abs(o.position.z + 7.1) < 0.01 && (Math.abs(o.position.y - 5) < 0.01 || Math.abs(o.position.y - 3.2) < 0.01)) st.signRows.push(o); });
@@ -121,7 +124,7 @@ function buildTrim(scene) {
 // kermis achter de machine: tenten, lampjesslingers, grond
 function buildFair(scene) {
   const g = new THREE.Group(); g.name = 'bbFair'; scene.add(g); st.fair = g;
-  const ground = new THREE.Mesh(new THREE.CircleGeometry(60, 48), new THREE.MeshStandardMaterial({ color: 0x1E0C1C, roughness: 0.6, metalness: 0.2 }));
+  const ground = new THREE.Mesh(new THREE.CircleGeometry(60, 48), new THREE.MeshStandardMaterial({ color: 0x2E1428, roughness: 0.55, metalness: 0.25 }));
   ground.rotation.x = -Math.PI / 2; ground.position.set(0, -1.62, -20); ground.receiveShadow = false; g.add(ground);
   const tents = [[-7.2, -12.5, 2.6, 4.6, 0], [7.4, -13, 2.8, 5.0, 1], [-2.6, -15.5, 2.2, 4.2, 2], [3.2, -16.5, 2.4, 4.8, 0], [-11, -16, 3, 5.6, 1], [11.5, -17, 3.2, 6, 2], [0, -20, 3.4, 6.4, 1]];
   const pairs = [['#C8323C', '#F3E3C6'], ['#C8323C', '#E9B24A'], ['#5A2A6A', '#F3E3C6']];
@@ -133,6 +136,7 @@ function buildFair(scene) {
     const door = new THREE.Mesh(new THREE.PlaneGeometry(r * 0.7, h * 0.36), glowM); door.position.set(x, -1.62 + h * 0.18, z + r + 0.01); g.add(door);
     const flag = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.5, 6), new THREE.MeshStandardMaterial({ color: 0xD3A04A, metalness: 1, roughness: 0.3 })); flag.position.set(x, -1.62 + h * 1.05 + 0.25, z); g.add(flag);
   }
+  const fairLight = new THREE.PointLight(0xFFA860, 40, 26, 2); fairLight.position.set(0, 4, -13); g.add(fairLight);
   // slingers met lampjes tussen de tenten
   const bulb = new THREE.SphereGeometry(0.09, 8, 6), cols = [0xFFE38A, 0xFF9A6A, 0xFFE38A, 0xFFF1C8];
   st.fairBulbs = [];
