@@ -178,16 +178,17 @@ function tick() {
 }
 
 // ---------- hook ----------
+// WebGLRenderer.render is een instance-methode, dus we haken in op Scene.onBeforeRender (wordt elke render één keer per scene aangeroepen).
 if (ART.on) {
-  const P = THREE.WebGLRenderer.prototype, render = P.render;
-  P.render = function (scene, camera) {
+  const P = THREE.Scene.prototype, before = P.onBeforeRender;
+  P.onBeforeRender = function (renderer, scene, camera, target) {
     try {
-      if (scene && scene.isScene && this.domElement && this.domElement.id === 'cv') {
-        if (!S && scene.children.length > 30) init(scene, this);
-        if (scene === S) tick();
+      if (renderer && renderer.domElement && renderer.domElement.id === 'cv') {
+        if (!S && this.children.length > 30) init(this, renderer);
+        if (this === S) tick();
       }
     } catch (e) { if (!ART.err) { ART.err = String(e); console.warn('bofflebell art', e); } }
-    return render.call(this, scene, camera);
+    return before.call(this, renderer, scene, camera, target);
   };
   ART.ready = true;
 }
