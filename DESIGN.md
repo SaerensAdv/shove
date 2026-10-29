@@ -178,9 +178,9 @@ components:
     textColor: "{colors.on-reward}"
 ---
 
-# Bofflebell · design system v0.1 (draft)
+# Bofflebell · design system v1.0
 
-Status: **draft, niet goedgekeurd.** Route: herwerk van de SHOVE v0.8-UI naar het merk uit DEC-112 (ClickUp, Decisions). Visuele check: de UI-kit (HTML) en screenshots op de ClickUp-taak "Keur het Bofflebell design system v0.1 goed". Tokens hier zijn normatief; `brand/tokens.css` is de CSS-laag voor de game.
+Status: **v1.0, goedgekeurd door Axel op 29 oktober 2026** (alle vier aanbevelingen: Lilita One + Nunito, munt met bel, emoji in fase 1, kraamthema's enkel als achtergrond). Merk: DEC-112 (ClickUp, Decisions). Visuele referentie: de UI-kit (HTML) op de ClickUp-taak "Keur het Bofflebell design system v0.1 goed". Tokens hier zijn normatief; `brand/tokens.css` is de CSS-laag en `brand/bofflebell-ui.css` de skin van de game.
 
 ## Overview
 
@@ -205,7 +205,7 @@ Drie lagen: primitives (`plum-*`, `red-*`, `cream-*`, `brass-*`, `mint-*`, `otte
 - **Mint** is succes en "nieuw". Spaarzaam.
 - **Otterbruin** is enkel voor Boffle en pluche-illustraties, nooit voor UI.
 
-Kraamthema's (Kermis, Night Market, Winter Fair) mogen de achtergrond van een kraam kleuren, maar de UI-rollen blijven gelijk.
+Kraamthema's (Kermis, Night Market, Winter Fair) kleuren enkel de achtergrond van een kraam; de UI-rollen blijven gelijk.
 
 ### Contrast (WCAG 2.1, gemeten)
 
@@ -234,8 +234,8 @@ Kraamthema's (Kermis, Night Market, Winter Fair) mogen de achtergrond van een kr
 ## Typography
 
 - **Display en cijfers: Lilita One.** Rond, dik en vriendelijk, dicht bij de geschilderde kermisletters van het logo. Vervangt Bungee (te hoekig en "arcade" naast pluche).
-- **Tekst en labels: Nunito** (600 tot 800). Ronde uitlopers passen bij vilt, goed leesbaar op klein formaat. Vervangt DM Sans.
-- Het logo is artwork, geen font. Gebruik altijd het logobestand, nooit "BOFFLEBELL" in Lilita One als logo.
+- **Tekst en labels: Nunito** (600 tot 900). Ronde uitlopers passen bij vilt, goed leesbaar op klein formaat. Vervangt DM Sans.
+- Het logo is artwork, geen font. Gebruik altijd het logobestand, nooit "BOFFLEBELL" in Lilita One als logo. Uitzondering tot het logobestand bestaat: het CSS-uithangbord op het laadscherm.
 
 | Token | Mobiel | Tablet/desktop | Gebruik |
 |---|---|---|---|
@@ -253,9 +253,9 @@ Minimum 12px, en dat enkel voor korte tags in hoofdletters. Uitleg nooit onder 1
 ## Layout
 
 - Spacing op een 4px-grid: 4, 8, 12, 16, 24, 32, 48.
-- Schermrand: 12px (mobiel portret), 8px (landscape met hoogte tot 520px). Altijd `env(safe-area-inset-*)` erbij.
+- Schermrand: 12px (mobiel portret), 8px (landscape met hoogte tot 520px, en schermen tot 360px breed). Altijd `env(safe-area-inset-*)` erbij.
 - Tap targets minimaal 44×44px, primaire acties 52 tot 56px hoog.
-- Mobiel portret is leidend (360 tot 430px breed). Landscape compact vanaf `max-height: 520px`. Tablet: panelen max. 420px breed, gecentreerd.
+- Mobiel portret is leidend (320 tot 430px breed). Landscape compact vanaf `max-height: 520px`. Tablet: panelen max. 420px breed, gecentreerd.
 - HUD-zones: boven (munten, tickets, level), rechts (iconknoppen, verticaal), onder (power-ups en DROP). De machine in het midden blijft vrij.
 
 ## Elevation & Depth
@@ -325,9 +325,9 @@ Locked- en empty-states tonen altijd wat je moet doen om verder te kunnen ("Reac
 
 ## Iconography
 
-- Fase 1 (nu): emoji blijven toegestaan in iconknoppen, altijd met `aria-label`.
+- Fase 1 (nu, goedgekeurd): emoji blijven in iconknoppen, altijd met `aria-label`.
 - Fase 2: eigen iconenset in viltstijl (24px grid, 2px stiksel, gevulde vormen in rollen). Volgorde: kraam, kermisspellen, prijzenkast, album, taken, shop, instellingen.
-- Munt: messing met ingeslagen bel (niet langer de ster of "S"). Ticket: rood met crème rand en tentje.
+- Munt (goedgekeurd): messing met ingeslagen bel, niet langer de ster of "S". Ticket: rood met crème rand en tentje.
 
 ## Imagery
 
@@ -365,8 +365,11 @@ Locked- en empty-states tonen altijd wat je moet doen om verder te kunnen ("Reac
 
 ## Implementatie
 
-De game is vanilla HTML, CSS en JS (geen Tailwind). Laad `brand/tokens.css` en vervang de huidige `--red`, `--gold`, `--cream`, `--ink`, `--sky` en de losse hex-waarden in `index.html` (o.a. `#8A5A12`, `#3A2430`, `#24131C`, `#FF8A3D`) stap voor stap door rollen. `tokens.json` (W3C DTCG) is de machineleesbare bron.
+De game is vanilla HTML, CSS en JS (geen Tailwind). `index.html` laadt na de basis-CSS `brand/tokens.css` en `brand/bofflebell-ui.css`; die skin zet de oude `--red`, `--gold`, `--cream`, `--ink`, `--sky` om naar rollen en overschrijft de losse hex-waarden. `tokens.json` (W3C DTCG) is de machineleesbare bron.
+
+- **UI pass 1 (29 okt 2026, gedaan):** DOM-UI (HUD, iconknoppen, power-ups, panelen, knoppen, tabs, toggles, toasts, coach, prijskaart, kraam- en spelkaarten, laadscherm als uithangbord), fonts, zichtbare naam Bofflebell, manifest, service-worker-cache `bofflebell-v0.9.0`.
+- **UI pass 2 (open):** teksten die op canvas getekend worden in `main.js`/`sidegames.js` (rad, munten, side games) van Bungee naar Lilita One; 3D-munt met bel; app-icoon en Boffle-asset; daarna de basis-CSS in `index.html` opruimen zodat enkel rollen overblijven. Bungee blijft tot dan geladen voor die canvas-teksten.
 
 | Route | Bronnen gebruikt | Gemaakt | Beslissingen genomen | Open voor Axel | Contrast | Volgende gate |
 |---|---|---|---|---|---|---|
-| Herwerk (SHOVE v0.8 naar Bofflebell) | DEC-112, brand board, mobiele mockup, intro-storyboard, `index.html` op `play` (54b8bbf) | DESIGN.md, tokens.json, brand/tokens.css, UI-kit (ClickUp) | rollen, contrast, stiksel, één rode actie, geen casino | fonts, munticoon, emoji of eigen iconen, kraamthema's | alle tekstparen AA, disabled uitgezonderd | goedkeuring Axel, daarna UI-pass in de build |
+| Herwerk (SHOVE v0.8 naar Bofflebell) | DEC-112, brand board, mobiele mockup, intro-storyboard, `index.html` op `play` (54b8bbf) | DESIGN.md, tokens.json, brand/tokens.css, brand/bofflebell-ui.css, UI-kit (ClickUp) | rollen, contrast, stiksel, één rode actie, geen casino, Lilita One + Nunito, bel-munt, emoji fase 1, kraamthema's als achtergrond | geen | alle tekstparen AA, disabled uitgezonderd | real-phone check van UI pass 1, daarna UI pass 2 |
