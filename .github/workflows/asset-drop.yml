@@ -1,0 +1,44 @@
+# Asset drop: binaire bestanden (video, beeld) die niet via de API als tekst gepusht kunnen worden.
+# Gebruik: push .github/asset-drop/<naam>.txt met regel 1 = HTTPS-URL naar een zip, regel 2 = sha256 van die zip.
+# De zip wordt in de repo-root uitgepakt, het dropbestand verwijderd en alles gecommit.
+name: Asset drop
+on:
+  push:
+    paths:
+      - '.github/asset-drop/*.txt'
+permissions:
+  contents: write
+concurrency:
+  group: asset-drop-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  drop:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch, verify and unpack
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(.github/asset-drop/*.txt)
+          [ ${#files[@]} -gt 0 ] || { echo 'Geen dropbestanden'; exit 0; }
+          for f in "${files[@]}"; do
+            url=$(sed -n '1p' "$f" | tr -d '\r[:space:]')
+            sum=$(sed -n '2p' "$f" | tr -d '\r[:space:]')
+            case "$url" in https://*) ;; *) echo "Geen HTTPS-URL in $f"; exit 1;; esac
+            curl -fsSL --retry 3 -o /tmp/drop.zip "$url"
+            echo "$sum  /tmp/drop.zip" | sha256sum -c -
+            unzip -o /tmp/drop.zip -d .
+            git rm -q "$f"
+          done
+      - name: Commit
+        shell: bash
+        run: |
+          git config user.name 'bofflebell-asset-bot'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --quiet && { echo 'Niets te committen'; exit 0; }
+          git commit -m 'Assets uit asset drop'
+          git push
