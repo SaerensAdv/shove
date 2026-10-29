@@ -1,8 +1,8 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<link rel="manifest" href="./manifest.json"><meta name="theme-color" content="#1A0F14"><link rel="icon" href="./icons/icon-192.png"><link rel="apple-touch-icon" href="./icons/icon-180.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="SHOVE">
-<title>SHOVE · Carnival coin pusher · prototype v0.8</title>
-<link href="https://fonts.googleapis.com/css2?family=Bungee&family=DM+Sans:wght@500;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<link rel="manifest" href="./manifest.json"><meta name="theme-color" content="#1B0D18"><link rel="icon" href="./icons/icon-192.png"><link rel="apple-touch-icon" href="./icons/icon-180.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Bofflebell">
+<title>Bofflebell · Carnival fair · v0.8</title>
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;700;800;900&family=Bungee&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <style>
 :root{--red:#D8343F;--gold:#FFD25A;--cream:#F6EBD5;--ink:#1A0F14;--sky:#1B0F2E}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -146,7 +146,8 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--sky);font-family
   #sg .sg-top b{font-size:16px}#sg .x{width:38px;height:38px}
 }
 .hidden{display:none!important}
-</style></head><body>
+</style>
+<link rel="stylesheet" href="./brand/tokens.css"><link rel="stylesheet" href="./brand/bofflebell-ui.css"><link rel="stylesheet" href="./brand/intro.css"></head><body>
 <canvas id="cv"></canvas>
 <div class="top">
   <div class="pill coins"><div class="c"></div><div><b id="coins">0</b><small id="refill">+1 in 0:30</small></div></div>
@@ -189,12 +190,12 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--sky);font-family
   <div class="setrow hidden" id="remRow">Daily reminder · 19:00<button class="tg" id="remBtn">OFF</button></div>
   <div class="sub">YOUR PROGRESS</div>
   <div class="row2"><button class="pack" id="bkCopy">💾 Backup code</button><button class="pack" id="bkLoad">↩︎ Restore</button></div>
-  <button class="btn" id="installBtn">📲 Put SHOVE on your home screen</button>
+  <button class="btn" id="installBtn">📲 Put Bofflebell on your home screen</button>
   <button class="btn" id="tutReplay">Replay the tutorial</button>
   <div class="linkrow"><button id="oddsBtn">Odds &amp; fair play</button><a href="./privacy.html" target="_blank" rel="noopener">Privacy</a></div>
   <div class="note" id="verLine"></div></div></div>
 <div class="modal hidden" id="fair"><div class="panel"><button class="x" data-close>×</button><h2>THE FAIR</h2><p>Skill games, no luck involved. Each play costs coins; how well you play decides the prize.</p><div id="fairList"></div></div></div>
-<div class="modal hidden" id="odds"><div class="panel"><button class="x" data-close>×</button><h2>THE ODDS</h2><p>Every chance in SHOVE, out in the open. Spins are only earned by playing, never sold.</p><div class="sub">LUCKY WHEEL</div><div id="oddsList"></div><div class="sub">ON THE MACHINE</div><div id="oddsMore"></div><div class="fair"><b>Fair play:</b> coins can't be bought or cashed out, and nothing in SHOVE has real-world value.</div><button class="btn hidden" id="oddsBack">BACK TO THE WHEEL</button></div></div>
+<div class="modal hidden" id="odds"><div class="panel"><button class="x" data-close>×</button><h2>THE ODDS</h2><p>Every chance in Bofflebell, out in the open. Spins are only earned by playing, never sold.</p><div class="sub">LUCKY WHEEL</div><div id="oddsList"></div><div class="sub">ON THE MACHINE</div><div id="oddsMore"></div><div class="fair"><b>Fair play:</b> coins can't be bought or cashed out, and nothing in Bofflebell has real-world value.</div><button class="btn hidden" id="oddsBack">BACK TO THE WHEEL</button></div></div>
 <div class="modal hidden" id="backup"><div class="panel"><button class="x" data-close>×</button><h2 id="bkTitle">BACKUP</h2><p id="bkInfo"></p><textarea id="bkText" spellcheck="false" autocomplete="off"></textarea><div id="bkMsg"></div><button class="btn" id="bkAct">COPY</button></div></div>
 <div class="modal hidden" id="away"><div class="panel"><h2>WELCOME BACK</h2><p id="awayLine"></p><div id="awayList"></div><button class="btn" id="awayGo">BACK TO THE MACHINE</button></div></div>
 <div id="shelf" class="hidden"><canvas id="shelfCv"></canvas><div class="sh-top"><div class="tabs" id="shelfTabs"></div><button class="x" id="shelfClose">×</button></div><div id="shelfInfo"></div></div>
@@ -202,12 +203,12 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--sky);font-family
 <div class="modal hidden" id="missions"><div class="panel"><button class="x" data-close>×</button><h2>DAILY TASKS</h2><p>Three new tasks every day. Finish all three to grow your streak.</p><div id="missList"></div><div class="note" id="streakLine"></div></div></div>
 <div class="modal hidden" id="wheel"><div class="wheelbox"><h2>LUCKY WHEEL</h2><div class="wwrap"><canvas id="wheelCv" width="600" height="600"></canvas><div class="pointer"></div></div><div id="wheelRes"></div><button class="btn" id="spinBtn">SPIN!</button><button id="wheelOdds">See the odds</button></div></div>
 <div class="modal hidden" id="out"><div class="panel"><button class="x" data-close>×</button><h2>OUT OF COINS</h2><p id="outLine"></p><button class="btn" id="outAd">📺 Watch an ad</button><button class="pack" id="outShop">Coin booth</button></div></div>
-<div id="loading">WARMING UP<br>THE MACHINE…</div>
+<div id="loading"><div><img class="bb-logo" src="./assets/intro/logo-720.webp" alt="Bofflebell" width="460" height="217"><span class="bb-sub">Warming up the fair…</span></div></div>
 <script type="importmap">{"imports":{
   "three":"https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js",
   "three/examples/jsm/":"https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/",
   "@dimforge/rapier3d-compat":"https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.12.0/rapier.es.js"}}</script>
-<script type="module" src="./main.js"></script><script>
+<script src="./brand/intro.js"></script><script type="module" src="./main.js"></script><script>
 (() => {
   const labelDialogs = () => {
     document.querySelectorAll('.modal').forEach(dialog => {
