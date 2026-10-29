@@ -2,6 +2,9 @@
 // Gebruikt door scene-art.js. Geen assets nodig.
 import * as THREE from 'three';
 
+// grootte op de machine (1 = knuffelformaat); Boffle is de barker, dus net iets groter dan de prijzen
+const SIZE = 1.35;
+
 const C = { fur: 0x6E4329, furDark: 0x553220, cream: 0xF1E2C6, pink: 0xE58A9A, red: 0xC8323C, brass: 0xD9A441, ink: 0x140A0E };
 
 function fabric(color, bump, sheen = 0xFFF1DC, amt = 0.7) {
@@ -67,11 +70,11 @@ export function animateBoffle(g, dt, ev) {
   const u = g.userData; u.t += dt;
   if (ev.prize) u.cheer = 1.6; if (ev.big) u.wave = Math.max(u.wave, 1.4); if (ev.win && u.hop <= 0) u.hop = 0.32;
   const breathe = Math.sin(u.t * 2.2) * 0.015;
-  u.body.scale.set(1 - breathe * 0.5, 1 + breathe, 1 - breathe * 0.5);
+  u.body.scale.set(SIZE * (1 - breathe * 0.5), SIZE * (1 + breathe), SIZE * (1 - breathe * 0.5));
   // hupje bij een gewonnen munt
   let y = 0; if (u.hop > 0) { u.hop -= dt; const k = 1 - u.hop / 0.32; y = Math.sin(k * Math.PI) * 0.12; }
   if (u.cheer > 0) { u.cheer -= dt; y = Math.abs(Math.sin(u.cheer * 9)) * 0.18; }
-  u.body.position.y = y;
+  u.body.position.y = y * SIZE;
   // hoofd: rustig rondkijken
   u.head.rotation.z = Math.sin(u.t * 0.7) * 0.08; u.head.rotation.y = Math.sin(u.t * 0.43) * 0.25; u.head.rotation.x = Math.sin(u.t * 0.9) * 0.04;
   // armen
