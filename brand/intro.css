@@ -13,4 +13,6 @@
 #bbIntro .bbi-end .btn{width:auto;min-width:220px;padding:14px 32px;animation:bbiPulse 1.4s var(--ease-out) infinite alternate}
 @keyframes bbiPulse{to{transform:scale(1.05)}}
 #bbIntro{--bb-bell-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 70'%3E%3Ccircle cx='32' cy='7' r='5' fill='none' stroke='black' stroke-width='4'/%3E%3Cpath d='M32 11c-14 0-20 12-20 26v10l-6 8h52l-6-8V37c0-14-6-26-20-26z'/%3E%3Crect x='6' y='52' width='52' height='7' rx='3.5'/%3E%3Ccircle cx='32' cy='63' r='6'/%3E%3C/svg%3E")}
-@media (prefers-reduced-motion:reduce){#bbIntro .bbi-start,#bbIntro .bbi-end .btn{animation:none}#bbIntro{transition:none}}
+#loading .bb-logo{display:block;width:min(88vw,460px);height:auto;margin:0 auto;filter:drop-shadow(0 12px 26px rgba(10,4,8,.65));animation:bbLogoIn 520ms var(--ease-out) both}
+@keyframes bbLogoIn{from{opacity:0;transform:scale(.82) rotate(-3deg)}}
+@media (prefers-reduced-motion:reduce){#loading .bb-logo{animation:none}#bbIntro .bbi-start,#bbIntro .bbi-end .btn{animation:none}#bbIntro{transition:none}}

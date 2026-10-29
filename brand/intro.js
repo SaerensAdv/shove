@@ -70,7 +70,15 @@
       r.addEventListener('click', () => { document.getElementById('settings')?.classList.add('hidden'); play('full'); }); }
   }
 
-  const go = () => { settings(); boot(); };
+  // Laadscherm: vervang het CSS-bord door het echte logo zodra het geladen is (ontbreekt het, dan blijft het bord).
+  function loadingLogo() {
+    const sign = document.querySelector('#loading .bb-sign'); if (!sign) return;
+    const im = new Image(); im.className = 'bb-logo'; im.alt = 'Bofflebell'; im.decoding = 'async';
+    im.onload = () => sign.isConnected && sign.replaceWith(im);
+    im.src = './assets/intro/logo-720.webp';
+  }
+
+  const go = () => { loadingLogo(); settings(); boot(); };
   document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', go) : go();
   window.bbIntro = { play };
 })();
