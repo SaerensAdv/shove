@@ -1,7 +1,8 @@
-// Bofflebell 3D-art pass v1.1: vilt, messing, bel-munt, logobord, warme lampjes en kermis achter de machine.
+// Bofflebell 3D-art pass v1.2: vilt, messing, bel-munt, logobord, warme lampjes en kermis achter de machine.
 // Losse laag bovenop main.js: haakt in op de render-call en past de bestaande scene aan. main.js blijft onaangeroerd.
 // Elke stap is idempotent en faalt stil, zodat de game altijd blijft draaien.
 import * as THREE from 'three';
+import { buildBoffle, animateBoffle } from './boffle.js';
 
 const STRESS = /[?&#]stress/.test(location.search + location.hash) || !!window.SHOVE_STRESS;
 const ART = { on: !STRESS && !/[?&#]noart/.test(location.search + location.hash) };
@@ -99,6 +100,25 @@ function init(scene, renderer) {
   buildFair(scene);
   buildTrim(scene);
   vignette();
+  // Boffle zelf, op de machine
+  st.boffle = buildBoffle(feltBump(2)); st.boffle.traverse(o => { if (o.material) st.done.add(o.material); }); scene.add(st.boffle);
+  st.last = null; st.prev = performance.now();
+}
+
+// Boffle: plek per oriëntatie, reacties op winst, combo's en knuffels
+function boffleTick() {
+  const b = st.boffle; if (!b) return;
+  const now = performance.now(), dt = Math.min(0.05, (now - st.prev) / 1000); st.prev = now;
+  const portrait = innerHeight >= innerWidth;
+  if (portrait) { b.position.set(-2.55, 2.93, -5.35); b.scale.setScalar(0.85); } else { b.position.set(4.3, -0.2, 5.85); b.scale.setScalar(0.8); }
+  b.rotation.y = Math.atan2(-b.position.x, 13 - b.position.z) * 0.8; b.rotation.x = portrait ? 0.12 : 0;
+  const k = window.__k, ev = {};
+  if (k && k.stats) {
+    const cur = { won: k.stats.won, plush: k.stats.plush, combo: k.combo || 0, rain: k.rainQ || 0 };
+    if (st.last) { const dw = cur.won - st.last.won; ev.win = dw > 0; ev.big = dw >= 8 || (cur.combo >= 15 && st.last.combo < 15) || cur.rain - st.last.rain >= 15; ev.prize = cur.plush > st.last.plush; }
+    st.last = cur;
+  }
+  animateBoffle(b, dt, ev);
 }
 
 // messing randen en een lampjesrij op het voorschort
@@ -175,10 +195,15 @@ function tick() {
   const k = Math.floor(now / 140); st.apron.forEach((b, i) => { b.material = (i + k) % 4 === 0 ? st.apronOff : st.apronOn; });
   if (st.apronLight) st.apronLight.intensity = 5.5 + Math.sin(now / 420) * 0.8;
   if (st.fairBulbs && st.frame % 6 === 0) st.fairBulbs.forEach((b, i) => { b.visible = (i + Math.floor(now / 500)) % 7 !== 0; });
-  // knuffels: vilt-reliëf op nieuwe knuffels (elke halve seconde)
-  if (st.frame % 30 === 0) S.traverse(o => { if (!o.isMesh || !o.material || Array.isArray(o.material)) return; const m = o.material;
-    if (st.done.has(m) || !m.isMeshStandardMaterial || m.roughness < 0.88 || m.metalness > 0.1 || m.map) return;
-    m.bumpMap = feltBump(2); m.bumpScale = 0.9; m.roughness = 0.97; m.needsUpdate = true; st.done.add(m); });
+  // knuffels: echte stof (sheen + vilt-reliëf) en glanzende kraaloogjes, elke halve seconde voor nieuwe knuffels
+  if (st.frame % 30 === 0) { st.fab = st.fab || new Map(); S.traverse(o => { if (!o.isMesh || !o.material || Array.isArray(o.material)) return; const m = o.material;
+    if (st.done.has(m) || !m.isMeshStandardMaterial || m.isMeshPhysicalMaterial) return;
+    if (near(m.color, 0x111111) && Math.abs(m.roughness - 0.4) < 0.001) { m.roughness = 0.07; m.envMapIntensity = 1.6; st.done.add(m); return; }
+    if (m.roughness < 0.88 || m.metalness > 0.1 || m.map || m.transparent || m.emissive.getHex() !== 0) return;
+    let f = st.fab.get(m); if (!f) { const sh = m.color.clone().lerp(new THREE.Color(0xFFFFFF), 0.35);
+      f = new THREE.MeshPhysicalMaterial({ color: m.color.clone(), roughness: 0.96, sheen: 0.7, sheenColor: sh, sheenRoughness: 0.45, bumpMap: feltBump(2), bumpScale: 1.0 }); st.fab.set(m, f); st.done.add(f); }
+    o.material = f; }); }
+  boffleTick();
 }
 
 // ---------- hook ----------
