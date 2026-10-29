@@ -4,6 +4,9 @@
 (() => {
   // 3D-art laag (vilt, messing, bel-munt, logobord) laden naast main.js
   import('./scene-art.js').catch(e => console.warn('bofflebell art niet geladen', e));
+  // gameplay-laag (gleuven, aardbeving, shake, balans) en UI-richting C
+  import('./play.js').catch(e => console.warn('bofflebell play niet geladen', e));
+  import('./ui-c.js').catch(e => console.warn('bofflebell ui niet geladen', e));
   const KEY = 'bb_intro_mode', SEEN = 'bb_intro_seen';
   const SRC = { full: './assets/intro/intro.mp4', sting: './assets/intro/sting.mp4', poster: './assets/intro/poster.jpg' };
   const get = (k, d) => { try { return localStorage.getItem(k) ?? d; } catch { return d; } };
