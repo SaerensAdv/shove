@@ -80,7 +80,8 @@
     im.src = './assets/intro/logo-720.webp';
   }
 
+  // dit script staat onderaan de body: de DOM is er al, dus meteen starten (niet wachten tot three.js binnen is)
   const go = () => { loadingLogo(); settings(); boot(); };
-  document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', go) : go();
+  go();
   window.bbIntro = { play };
 })();
