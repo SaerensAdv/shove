@@ -1,0 +1,57 @@
+/* Bofflebell tokens v0.1 (draft). Bron: tokens.json. Componenten gebruiken alleen --color-* rollen. */
+:root{
+  --plum-950:#1B0D18;
+  --plum-900:#26121F;
+  --plum-800:#341A2B;
+  --plum-700:#4A2A3E;
+  --plum-500:#7A5468;
+  --red-400:#E5535D;
+  --red-500:#C92F3B;
+  --red-600:#AE2633;
+  --red-700:#8E1C27;
+  --cream-50:#FFF8EA;
+  --cream-100:#F6EBD5;
+  --cream-300:#D9C6A6;
+  --brass-300:#F2CF73;
+  --brass-400:#E2AE45;
+  --brass-600:#A9741F;
+  --brass-800:#6B4510;
+  --mint-300:#A6DCC3;
+  --mint-500:#5DB591;
+  --otter-600:#7A4E32;
+  --color-background:var(--plum-950);
+  --color-surface:var(--plum-900);
+  --color-surface-raised:var(--plum-800);
+  --color-on-surface:var(--cream-100);
+  --color-on-surface-muted:var(--cream-300);
+  --color-border:var(--plum-700);
+  --color-border-trim:var(--brass-600);
+  --color-primary:var(--red-500);
+  --color-primary-hover:var(--red-600);
+  --color-primary-pressed:var(--red-700);
+  --color-on-primary:var(--cream-50);
+  --color-reward:var(--brass-400);
+  --color-reward-hover:var(--brass-300);
+  --color-reward-pressed:var(--brass-600);
+  --color-on-reward:var(--plum-950);
+  --color-highlight:var(--brass-300);
+  --color-paper:var(--cream-100);
+  --color-on-paper:var(--plum-950);
+  --color-on-paper-accent:var(--red-700);
+  --color-success:var(--mint-300);
+  --color-success-strong:var(--mint-500);
+  --color-danger:var(--red-400);
+  --color-disabled:var(--plum-500);
+  --color-focus:var(--cream-50);
+  --color-mascot:var(--otter-600);
+  --font-display:"Lilita One","Arial Rounded MT Bold",system-ui,sans-serif;
+  --font-text:"Nunito",system-ui,sans-serif;
+  --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-6:24px;--space-8:32px;--space-12:48px;
+  --radius-sm:10px;--radius-md:16px;--radius-lg:22px;--radius-xl:28px;--radius-full:9999px;
+  --dur-fast:120ms;--dur-base:200ms;--dur-slow:350ms;--dur-bell:600ms;
+  --ease-out:cubic-bezier(.2,.8,.2,1);--ease-bounce:cubic-bezier(.2,1.6,.4,1);--ease-swing:cubic-bezier(.36,0,.66,1.4);
+  --shadow-panel:0 18px 40px rgba(10,4,8,.55);--shadow-glow:0 0 18px rgba(242,207,115,.55);
+  --stitch-dark:rgba(255,248,234,.45);--stitch-light:rgba(27,13,24,.35);
+  --focus-ring:0 0 0 3px var(--color-background),0 0 0 6px var(--color-focus);
+}
+@media (prefers-reduced-motion:reduce){:root{--ease-bounce:var(--ease-out);--ease-swing:var(--ease-out);--dur-bell:200ms;--dur-slow:200ms}}
