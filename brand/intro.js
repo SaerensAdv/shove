@@ -2,6 +2,8 @@
 // Terugkomst = korte bel-sting. Instelling (Auto / Always / Off) in Settings. Altijd overslaanbaar.
 // Ontbreken de videobestanden, dan slaat de intro zichzelf stil over.
 (() => {
+  // 3D-art laag (vilt, messing, bel-munt, logobord) laden naast main.js
+  import('./scene-art.js').catch(e => console.warn('bofflebell art niet geladen', e));
   const KEY = 'bb_intro_mode', SEEN = 'bb_intro_seen';
   const SRC = { full: './assets/intro/intro.mp4', sting: './assets/intro/sting.mp4', poster: './assets/intro/poster.jpg' };
   const get = (k, d) => { try { return localStorage.getItem(k) ?? d; } catch { return d; } };
